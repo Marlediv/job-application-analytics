@@ -25,6 +25,7 @@ dist/
 # Data outputs (keep folder structure)
 data/processed/*
 !data/processed/.gitkeep
+data/raw/Bewerbungsliste.xlsx
 
 # Streamlit cache
 .streamlit/
