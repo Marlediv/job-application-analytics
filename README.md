@@ -53,6 +53,10 @@ python -m src.ingest
 streamlit run dashboard/app.py
 ```
 
+## Daten aktualisieren
+Im Dashboard links unter `Daten-Upload` eine neue Bewerbungsliste (`.xlsx`) hochladen.
+Die Pipeline verarbeitet die Datei automatisch und aktualisiert die KPIs.
+
 ## Nutzung
 - Insight-Report erzeugen: `python -m src.report`
 - Ergebnis: `reports/insights.md`

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -38,13 +41,59 @@ from src.kpi import (
 st.set_page_config(page_title="Job Application Analytics", layout="wide")
 st.title("Job Application Analytics")
 
+RAW_DIR = ROOT / "data" / "raw"
+PROCESSED_DIR = ROOT / "data" / "processed"
+RAW_FILE = RAW_DIR / "Bewerbungsliste.xlsx"
+
 
 def _load_data() -> pd.DataFrame:
     return load_processed()
 
 
+st.sidebar.header("Daten-Upload")
+uploaded_file = st.sidebar.file_uploader("Neue Bewerbungsliste (.xlsx)", type=["xlsx"])
+
+if uploaded_file is not None:
+    upload_bytes = uploaded_file.getvalue()
+    upload_hash = hashlib.sha256(upload_bytes).hexdigest()
+
+    if st.session_state.get("last_upload_hash") != upload_hash:
+        RAW_DIR.mkdir(parents=True, exist_ok=True)
+        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+        RAW_FILE.write_bytes(upload_bytes)
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "src.ingest"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            st.session_state["last_upload_hash"] = upload_hash
+            st.session_state["last_update_timestamp"] = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+            st.sidebar.success("Upload erfolgreich. Daten wurden verarbeitet.")
+            if result.stdout.strip():
+                st.sidebar.code(result.stdout.strip(), language="text")
+            st.cache_data.clear()
+            st.rerun()
+        except subprocess.CalledProcessError as exc:
+            err_text = (exc.stderr or exc.stdout or str(exc)).strip()
+            short_error = err_text.splitlines()[-1] if err_text else str(exc)
+            st.sidebar.error(f"Ingestion fehlgeschlagen: {short_error}")
+            if exc.stdout.strip():
+                st.sidebar.code(exc.stdout.strip(), language="text")
+            if exc.stderr.strip():
+                st.sidebar.code(exc.stderr.strip(), language="text")
+
+if "last_update_timestamp" in st.session_state:
+    st.sidebar.caption(f"Letztes Update: {st.session_state['last_update_timestamp']}")
+
+
 try:
     data = _load_data()
+except FileNotFoundError:
+    st.info("Bitte Excel hochladen oder zuerst python -m src.ingest ausfuehren.")
+    st.stop()
 except Exception as exc:
     st.error(f"Daten konnten nicht geladen werden: {exc}")
     st.stop()
