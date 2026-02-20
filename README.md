@@ -57,6 +57,19 @@ streamlit run dashboard/app.py
 Im Dashboard links unter `Daten-Upload` eine neue Bewerbungsliste (`.xlsx`) hochladen.
 Die Pipeline verarbeitet die Datei automatisch und aktualisiert die KPIs.
 
+## Docker (Raspberry Pi)
+```bash
+docker compose build
+docker compose up -d
+```
+
+Zugriff im Browser:
+`http://<raspi-ip>:8501`
+
+Hinweis:
+- Auf dem Raspberry Pi ggf. `docker compose` statt `docker-compose` verwenden.
+- Daten-Uploads im Dashboard werden im Volume unter `./data` persistiert.
+
 ## Nutzung
 - Insight-Report erzeugen: `python -m src.report`
 - Ergebnis: `reports/insights.md`
