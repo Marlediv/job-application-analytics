@@ -1,0 +1,34 @@
+# Job Application Analytics
+
+## Projektziel
+Dieses Repository analysiert Bewerbungsdaten aus einer Excel-Datei und stellt zentrale KPIs in einem Streamlit-Dashboard dar. Ziel ist ein reproduzierbares Showcase-Projekt fuer Bewerbungsprozesse.
+
+## Projektstruktur
+- `data/raw/`: Rohdaten (inkl. `Bewerbungsliste.xlsx`)
+- `data/processed/`: aufbereitete Daten (`applications.csv`)
+- `src/`: Ingestion- und KPI-Logik
+- `dashboard/`: Streamlit-App
+- `docs/`: KPI-Dokumentation
+- `notebooks/`: explorative Analysen
+- `screenshots/`: Dashboard-Screenshots
+- `tests/`: Platz fuer Tests
+
+## Setup
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Pipeline ausfuehren
+```bash
+python -m src.ingest
+```
+
+## Dashboard starten
+```bash
+streamlit run dashboard/app.py
+```
+
+## KPI-Definitionen
+Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.
