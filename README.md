@@ -53,6 +53,10 @@ python -m src.ingest
 streamlit run dashboard/app.py
 ```
 
+## Nutzung
+- Insight-Report erzeugen: `python -m src.report`
+- Ergebnis: `reports/insights.md`
+
 ## KPI-Definitionen
 Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.
 Ergaenzt wurden u. a. Rueckmeldequote, Ghosting-Quote und Funnel-Conversion-Rates.
