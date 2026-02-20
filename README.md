@@ -32,3 +32,13 @@ streamlit run dashboard/app.py
 
 ## KPI-Definitionen
 Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.
+
+## Key Insights
+
+- Interviewquote: X %
+- Durchschnittliche Reaktionszeit: X Tage
+- Höchste Conversion-Rate über Quelle: X
+- Arbeitsmodell mit bester Erfolgsquote: X
+- Korrelation Ranking Score vs. Interview: (positiv / schwach / keine)
+
+Diese Analyse dient der datenbasierten Optimierung der Bewerbungsstrategie.
