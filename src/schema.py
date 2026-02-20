@@ -39,6 +39,7 @@ SYNONYM_MAPPING: Dict[str, str] = {
     "source": "quelle",
     "plattform": "quelle",
     "arbeitsmodell": "arbeitsmodell",
+    "arbeitsmodel": "arbeitsmodell",
     "work_model": "arbeitsmodell",
     "arbeitsweise": "arbeitsmodell",
     "arbeitsort": "arbeitsmodell",
