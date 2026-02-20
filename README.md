@@ -55,6 +55,7 @@ streamlit run dashboard/app.py
 
 ## KPI-Definitionen
 Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.
+Ergaenzt wurden u. a. Rueckmeldequote, Ghosting-Quote und Funnel-Conversion-Rates.
 
 ## Key Insights
 

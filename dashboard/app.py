@@ -17,6 +17,9 @@ if str(ROOT) not in sys.path:
 from src.kpi import (
     active_applications,
     avg_wait_time,
+    funnel_table,
+    ghosted_count,
+    ghosted_rate,
     interview_count,
     interview_rate,
     kpi_by_source,
@@ -25,6 +28,8 @@ from src.kpi import (
     ranking_vs_interview,
     rejection_count,
     rejection_rate,
+    response_count,
+    response_rate,
     total_applications,
     wait_time_by_status,
 )
@@ -36,20 +41,6 @@ st.title("Job Application Analytics")
 
 def _load_data() -> pd.DataFrame:
     return load_processed()
-
-
-def _status_series(df: pd.DataFrame) -> pd.Series:
-    if "status" not in df.columns:
-        return pd.Series([""] * len(df), index=df.index)
-
-    status = df["status"].fillna("").astype(str).str.strip().str.lower()
-    status = (
-        status.str.replace("ä", "ae", regex=False)
-        .str.replace("ö", "oe", regex=False)
-        .str.replace("ü", "ue", regex=False)
-        .str.replace("ß", "ss", regex=False)
-    )
-    return status
 
 
 try:
@@ -104,7 +95,8 @@ if "status" in filtered.columns:
     if selected_status:
         filtered = filtered[filtered["status"].astype(str).str.strip().isin(selected_status)]
 
-col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+top1, top2, top3, top4, top5, top6 = st.columns(6)
+bottom1, bottom2, bottom3, bottom4, bottom5 = st.columns(5)
 
 try:
     total_value = total_applications(filtered)
@@ -113,18 +105,28 @@ try:
     interview_rate_value = interview_rate(filtered)
     rejection_value = rejection_count(filtered)
     rejection_rate_value = rejection_rate(filtered)
+    response_value = response_count(filtered)
+    response_rate_value = response_rate(filtered)
+    ghosted_value = ghosted_count(filtered)
+    ghosted_rate_value = ghosted_rate(filtered)
     avg_wait_value = avg_wait_time(filtered) if "wartezeit_tage" in filtered.columns else float("nan")
+    funnel_df = funnel_table(filtered)
 except ValueError as exc:
     st.error(f"KPI-Berechnung nicht moeglich: {exc}")
     st.stop()
 
-col1.metric("Gesamt", f"{total_value}")
-col2.metric("Aktiv", f"{active_value}")
-col3.metric("Interviews", f"{interview_value}")
-col4.metric("Interviewquote", f"{interview_rate_value:.1%}")
-col5.metric("Absagen", f"{rejection_value}")
-col6.metric("Absagequote", f"{rejection_rate_value:.1%}")
-col7.metric("Ø Wartezeit", "-" if pd.isna(avg_wait_value) else f"{avg_wait_value:.1f} Tage")
+top1.metric("Gesamt", f"{total_value}")
+top2.metric("Aktiv", f"{active_value}")
+top3.metric("Interviews", f"{interview_value}")
+top4.metric("Interviewquote", f"{interview_rate_value:.1%}")
+top5.metric("Absagen", f"{rejection_value}")
+top6.metric("Absagequote", f"{rejection_rate_value:.1%}")
+
+bottom1.metric("Rueckmeldungen", f"{response_value}")
+bottom2.metric("Rueckmeldequote", f"{response_rate_value:.1%}")
+bottom3.metric("Ghosted", f"{ghosted_value}")
+bottom4.metric("Ghosting-Quote", f"{ghosted_rate_value:.1%}")
+bottom5.metric("Ø Wartezeit", "-" if pd.isna(avg_wait_value) else f"{avg_wait_value:.1f} Tage")
 
 st.divider()
 
@@ -152,32 +154,18 @@ with left:
 
 with right:
     st.subheader("Funnel")
-    if "status" in filtered.columns:
-        status_norm = _status_series(filtered)
-        total_stage = len(filtered)
-        feedback_stage = int(
-            status_norm.str.contains(r"rueckmeldung|feedback|antwort|interview|angebot|absage|abgelehnt", regex=True).sum()
-        )
-        interview_stage = int(status_norm.str.contains(r"interview|gespraech", regex=True).sum())
-        offer_stage = int(status_norm.str.contains(r"angebot|offer|zusage", regex=True).sum())
-
-        stages = ["Bewerbung"]
-        values = [total_stage]
-
-        if feedback_stage > 0:
-            stages.append("Rueckmeldung")
-            values.append(feedback_stage)
-        if interview_stage > 0:
-            stages.append("Interview")
-            values.append(interview_stage)
-        if offer_stage > 0:
-            stages.append("Angebot")
-            values.append(offer_stage)
-
-        fig_funnel = go.Figure(go.Funnel(y=stages, x=values))
+    if not funnel_df.empty:
+        fig_funnel = go.Figure(go.Funnel(y=funnel_df["stage"], x=funnel_df["count"]))
         st.plotly_chart(fig_funnel, use_container_width=True)
+
+        funnel_display = funnel_df.copy()
+        funnel_display["rate_from_prev"] = funnel_display["rate_from_prev"].map(
+            lambda v: "-" if pd.isna(v) else f"{v:.1%}"
+        )
+        funnel_display["rate_from_total"] = funnel_display["rate_from_total"].map(lambda v: f"{v:.1%}")
+        st.dataframe(funnel_display, use_container_width=True)
     else:
-        st.info("Spalte 'status' fehlt, Funnel nicht ableitbar.")
+        st.info("Keine Funnel-Daten verfuegbar.")
 
 left2, right2 = st.columns(2)
 
@@ -217,6 +205,33 @@ with right2:
             st.info("Keine Wartezeit-Daten verfuegbar.")
     except ValueError as exc:
         st.info(str(exc))
+
+st.subheader("Ghosting nach Quelle")
+if "quelle" in filtered.columns:
+    try:
+        source_ghost = filtered.copy()
+        source_ghost["quelle"] = source_ghost["quelle"].fillna("Unbekannt").astype(str).str.strip()
+        source_ghost = (
+            source_ghost.groupby("quelle", dropna=False)
+            .agg(counts=("quelle", "size"), ghosted=("is_ghosted", "sum"))
+            .reset_index()
+        )
+        source_ghost["ghosted_rate"] = source_ghost["ghosted"] / source_ghost["counts"]
+        source_ghost = source_ghost.sort_values("counts", ascending=False)
+
+        fig_ghost = px.bar(
+            source_ghost,
+            x="quelle",
+            y="ghosted_rate",
+            hover_data=["counts", "ghosted"],
+            labels={"quelle": "Quelle", "ghosted_rate": "Ghosting-Quote"},
+        )
+        fig_ghost.update_yaxes(tickformat=".0%")
+        st.plotly_chart(fig_ghost, use_container_width=True)
+    except Exception as exc:  # pragma: no cover
+        st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
+else:
+    st.info("Spalte 'quelle' fehlt, Ghosting nach Quelle nicht verfuegbar.")
 
 st.subheader("Ranking Score vs Interview")
 try:

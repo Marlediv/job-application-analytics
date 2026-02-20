@@ -17,7 +17,8 @@ def load_processed(path: str | Path = "data/processed/applications.csv") -> pd.D
     if not csv_path.exists():
         raise FileNotFoundError(f"Processed CSV nicht gefunden: {csv_path}")
 
-    return pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path)
+    return _ensure_status_flags(df)
 
 
 def _require_columns(df: pd.DataFrame, columns: list[str]) -> None:
@@ -30,31 +31,56 @@ def _require_columns(df: pd.DataFrame, columns: list[str]) -> None:
 
 
 def _normalized_status(df: pd.DataFrame) -> pd.Series:
+    out = _ensure_status_flags(df)
+    return out["status_clean"]
+
+
+def _ensure_status_flags(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["status"])
 
-    status = df["status"].fillna("").astype(str).str.strip().str.lower()
-    status = (
-        status.str.replace("ä", "ae", regex=False)
+    out = df.copy()
+    out["status_clean"] = out["status"].fillna("").astype(str).str.strip().str.lower()
+    status_for_match = (
+        out["status_clean"]
+        .str.replace("ä", "ae", regex=False)
         .str.replace("ö", "oe", regex=False)
         .str.replace("ü", "ue", regex=False)
         .str.replace("ß", "ss", regex=False)
     )
-    return status
+
+    out["is_rejection"] = status_for_match.str.contains(r"absage|abgelehnt", regex=True)
+    out["is_offer"] = status_for_match.str.contains(r"angebot|offer|zusage", regex=True)
+    out["is_interview"] = status_for_match.str.contains(r"interview|gespraech|gesprach|gespräch", regex=True)
+
+    response_text = status_for_match.str.contains(
+        r"eingangsbestaetigung|eingangsbestatigung|eingangsbestaetigung|eingangsbestätigung|rueckmeldung|ruckmeldung|rückmeldung|antwort",
+        regex=True,
+    )
+    out["is_response"] = response_text | out["is_rejection"] | out["is_offer"] | out["is_interview"]
+    out["is_active"] = ~out["is_rejection"] & ~out["is_offer"]
+
+    if "wartezeit_tage" in out.columns:
+        wait_days = pd.to_numeric(out["wartezeit_tage"], errors="coerce")
+        out["is_ghosted"] = out["is_active"] & (wait_days >= 30)
+    else:
+        out["is_ghosted"] = False
+
+    return out
 
 
 def _interview_mask(df: pd.DataFrame) -> pd.Series:
-    status = _normalized_status(df)
-    return status.str.contains(r"interview|gespraech", regex=True)
+    out = _ensure_status_flags(df)
+    return out["is_interview"]
 
 
 def _rejection_mask(df: pd.DataFrame) -> pd.Series:
-    status = _normalized_status(df)
-    return status.str.contains(r"absage|abgelehnt", regex=True)
+    out = _ensure_status_flags(df)
+    return out["is_rejection"]
 
 
 def _offer_mask(df: pd.DataFrame) -> pd.Series:
-    status = _normalized_status(df)
-    return status.str.contains(r"angebot|offer|zusage", regex=True)
+    out = _ensure_status_flags(df)
+    return out["is_offer"]
 
 
 def total_applications(df: pd.DataFrame) -> int:
@@ -62,9 +88,8 @@ def total_applications(df: pd.DataFrame) -> int:
 
 
 def active_applications(df: pd.DataFrame) -> int:
-    status = _normalized_status(df)
-    inactive = status.str.contains(r"absage|abgelehnt|angebot|offer|zusage", regex=True)
-    return int((~inactive).sum())
+    out = _ensure_status_flags(df)
+    return int(out["is_active"].sum())
 
 
 def rejection_count(df: pd.DataFrame) -> int:
@@ -73,6 +98,10 @@ def rejection_count(df: pd.DataFrame) -> int:
 
 def interview_count(df: pd.DataFrame) -> int:
     return int(_interview_mask(df).sum())
+
+
+def offer_count(df: pd.DataFrame) -> int:
+    return int(_offer_mask(df).sum())
 
 
 def rejection_rate(df: pd.DataFrame) -> float:
@@ -85,6 +114,26 @@ def interview_rate(df: pd.DataFrame) -> float:
     return float(interview_count(df) / total) if total else 0.0
 
 
+def response_count(df: pd.DataFrame) -> int:
+    out = _ensure_status_flags(df)
+    return int(out["is_response"].sum())
+
+
+def response_rate(df: pd.DataFrame) -> float:
+    total = total_applications(df)
+    return float(response_count(df) / total) if total else 0.0
+
+
+def ghosted_count(df: pd.DataFrame) -> int:
+    out = _ensure_status_flags(df)
+    return int(out["is_ghosted"].sum())
+
+
+def ghosted_rate(df: pd.DataFrame) -> float:
+    total = total_applications(df)
+    return float(ghosted_count(df) / total) if total else 0.0
+
+
 def avg_wait_time(df: pd.DataFrame) -> float:
     _require_columns(df, ["wartezeit_tage"])
     series = pd.to_numeric(df["wartezeit_tage"], errors="coerce")
@@ -93,9 +142,9 @@ def avg_wait_time(df: pd.DataFrame) -> float:
 
 def kpi_by_source(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["quelle", "status"])
-    out = df.copy()
+    out = _ensure_status_flags(df)
     out["quelle"] = out["quelle"].fillna("Unbekannt").astype(str).str.strip()
-    out["interviewed"] = _interview_mask(out)
+    out["interviewed"] = out["is_interview"]
 
     grouped = (
         out.groupby("quelle", dropna=False)
@@ -112,9 +161,9 @@ def kpi_by_source(df: pd.DataFrame) -> pd.DataFrame:
 
 def kpi_by_work_model(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["arbeitsmodell", "status"])
-    out = df.copy()
+    out = _ensure_status_flags(df)
     out["arbeitsmodell"] = out["arbeitsmodell"].fillna("Unbekannt").astype(str).str.strip()
-    out["interviewed"] = _interview_mask(out)
+    out["interviewed"] = out["is_interview"]
 
     grouped = (
         out.groupby("arbeitsmodell", dropna=False)
@@ -146,7 +195,39 @@ def wait_time_by_status(df: pd.DataFrame) -> pd.DataFrame:
 
 def ranking_vs_interview(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["ranking_score", "status"])
-    out = df.copy()
+    out = _ensure_status_flags(df)
     out["ranking_score"] = pd.to_numeric(out["ranking_score"], errors="coerce")
-    out["interviewed"] = _interview_mask(out)
+    out["interviewed"] = out["is_interview"]
     return out[["ranking_score", "interviewed"]].dropna(subset=["ranking_score"])
+
+
+def funnel_table(df: pd.DataFrame) -> pd.DataFrame:
+    out = _ensure_status_flags(df)
+    total = total_applications(out)
+    response = int(out["is_response"].sum())
+    interview = int(out["is_interview"].sum())
+    offer = int(out["is_offer"].sum())
+
+    stages = [
+        ("Bewerbungen", total),
+        ("Rueckmeldung", response),
+        ("Interview", interview),
+        ("Angebot", offer),
+    ]
+
+    rows: list[dict[str, float | int | str]] = []
+    prev_count: int | None = None
+    for stage_name, count in stages:
+        rate_from_prev = float(count / prev_count) if prev_count and prev_count > 0 else float("nan")
+        rate_from_total = float(count / total) if total > 0 else 0.0
+        rows.append(
+            {
+                "stage": stage_name,
+                "count": int(count),
+                "rate_from_prev": rate_from_prev,
+                "rate_from_total": rate_from_total,
+            }
+        )
+        prev_count = int(count)
+
+    return pd.DataFrame(rows, columns=["stage", "count", "rate_from_prev", "rate_from_total"])
