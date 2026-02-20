@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from .schema import DATE_COLUMNS, EXPECTED_COLUMNS, NUMERIC_COLUMNS, SYNONYM_MAPPING, normalize_column_name
