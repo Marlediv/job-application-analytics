@@ -13,6 +13,29 @@ Dieses Repository analysiert Bewerbungsdaten aus einer Excel-Datei und stellt ze
 - `screenshots/`: Dashboard-Screenshots
 - `tests/`: Platz fuer Tests
 
+## Architektur
+```mermaid
+flowchart LR
+    subgraph Raw Layer
+        A[data/raw/Bewerbungsliste.xlsx]
+    end
+
+    subgraph Processing Layer
+        B[src/ingest.py]
+        C[data/processed/applications.csv]
+    end
+
+    subgraph Analytics Layer
+        D[src/kpi.py]
+    end
+
+    subgraph Presentation Layer
+        E[dashboard/app.py (Streamlit)]
+    end
+
+    A --> B --> C --> D --> E
+```
+
 ## Setup
 ```bash
 python -m venv .venv
