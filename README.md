@@ -12,6 +12,15 @@ Dieses Repository analysiert Bewerbungsdaten aus einer Excel-Datei und stellt ze
 - `notebooks/`: explorative Analysen
 - `screenshots/`: Dashboard-Screenshots
 - `tests/`: Platz fuer Tests
+- `.github/workflows/`: CI-Pipeline fuer Build- und Testchecks
+
+## Showcase Features
+- End-to-end Pipeline: Excel-Ingestion (`src/ingest.py`) nach `data/processed/applications.csv`
+- Produktreifes Dashboard: KPI-Karten, Datenstand, Key Insights, Funnel, Export-Funktionen
+- Data Quality: Required-Column-, Datums-, Status- und Duplicate-Checks in `src/quality.py`
+- Reproduzierbarkeit: einfache Testskripte in `tests/` mit direkten `assert`-Checks
+- CI-Absicherung: GitHub Actions Workflow (`.github/workflows/ci.yml`)
+- Deployment-ready: Streamlit lokal oder per Docker/Docker Compose (Raspberry Pi geeignet)
 
 ## Architektur
 ```mermaid
@@ -73,6 +82,11 @@ Hinweis:
 ## Nutzung
 - Insight-Report erzeugen: `python -m src.report`
 - Ergebnis: `reports/insights.md`
+
+## Screenshots
+- `screenshots/dashboard_overview.png` (Platzhalter)
+- `screenshots/dashboard_funnel_and_insights.png` (Platzhalter)
+- `screenshots/dashboard_quality_and_exports.png` (Platzhalter)
 
 ## KPI-Definitionen
 Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -35,14 +36,16 @@ from src.kpi import (
     total_applications,
     wait_time_by_status,
 )
+from src.insights import build_key_insights, format_insights_markdown
+from src.report import REPORT_PATH, generate_report
 
 
 st.set_page_config(page_title="Job Application Analytics", layout="wide")
-st.title("Job Application Analytics")
 
 RAW_DIR = ROOT / "data" / "raw"
 PROCESSED_DIR = ROOT / "data" / "processed"
 RAW_FILE = RAW_DIR / "Bewerbungsliste.xlsx"
+PROCESSED_FILE = PROCESSED_DIR / "applications.csv"
 
 
 def _load_data() -> pd.DataFrame:
@@ -58,6 +61,20 @@ def render_kpi(label: str, value: str, help_text: str | None = None) -> None:
 def apply_chart_layout(fig: go.Figure) -> go.Figure:
     fig.update_layout(height=340, margin=dict(l=20, r=20, t=50, b=30))
     return fig
+
+
+def _dataset_timestamp() -> str:
+    if PROCESSED_FILE.exists():
+        mtime = datetime.fromtimestamp(PROCESSED_FILE.stat().st_mtime).astimezone()
+        return mtime.strftime("%Y-%m-%d %H:%M:%S %Z")
+    return "-"
+
+
+def _host_badge() -> str:
+    try:
+        return os.uname().nodename
+    except AttributeError:  # pragma: no cover
+        return "unknown-host"
 
 
 st.sidebar.header("Daten-Upload")
@@ -107,6 +124,14 @@ except FileNotFoundError:
 except Exception as exc:
     st.error(f"Daten konnten nicht geladen werden: {exc}")
     st.stop()
+
+head_left, head_right = st.columns([3, 2])
+with head_left:
+    st.title("Job Application Analytics")
+with head_right:
+    st.markdown(f"**Datenstand:** {_dataset_timestamp()}")
+    st.markdown(f"**Datensatz:** `applications.csv` ({len(data)} Zeilen)")
+    st.caption(f"RUNNING ON: `{_host_badge()}`")
 
 filtered = data.copy()
 
@@ -159,6 +184,32 @@ if "interviewed_flag" not in filtered.columns:
 if "ghosted_flag" not in filtered.columns:
     filtered["ghosted_flag"] = filtered.get("is_ghosted", False)
 
+st.sidebar.header("Export")
+if st.sidebar.button("Insight-Report (MD) erzeugen"):
+    try:
+        report_path = generate_report(REPORT_PATH)
+        report_content = Path(report_path).read_text(encoding="utf-8")
+        st.session_state["insight_report_content"] = report_content
+        st.sidebar.success("Insight-Report wurde erzeugt.")
+    except Exception as exc:
+        st.sidebar.error(f"Report-Erzeugung fehlgeschlagen: {exc}")
+
+if "insight_report_content" in st.session_state:
+    st.sidebar.download_button(
+        "Insight-Report (MD) herunterladen",
+        data=st.session_state["insight_report_content"],
+        file_name="insights.md",
+        mime="text/markdown",
+    )
+
+snapshot_csv = filtered.to_csv(index=False).encode("utf-8")
+st.sidebar.download_button(
+    "KPI Snapshot (CSV)",
+    data=snapshot_csv,
+    file_name="kpi_snapshot_filtered.csv",
+    mime="text/csv",
+)
+
 try:
     total_value = total_applications(filtered)
     active_value = active_applications(filtered)
@@ -201,6 +252,12 @@ with bottom4:
     render_kpi("Ghosting-Quote", f"{ghosted_rate_value:.1%}")
 with bottom5:
     render_kpi("Ø Wartezeit", "-" if pd.isna(avg_wait_value) else f"{avg_wait_value:.1f} Tage")
+
+st.subheader("Key Insights")
+insights = build_key_insights(filtered, funnel_df=funnel_df)
+icon_cycle = ["🧭", "📉", "⏳", "✅", "⚠️", "📌"]
+insight_lines = [f"{icon_cycle[idx % len(icon_cycle)]} {text}" for idx, text in enumerate(insights)]
+st.markdown(format_insights_markdown(insight_lines))
 
 st.divider()
 

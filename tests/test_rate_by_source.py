@@ -63,3 +63,10 @@ def test_rate_by_source_ignores_nan_and_empty_source() -> None:
     indexed = out.set_index("quelle")
     assert indexed.loc["LinkedIn", "counts"] == 1
     assert indexed.loc["XING", "counts"] == 1
+
+
+if __name__ == "__main__":
+    test_rate_by_source_zero_flags_returns_zero_rate_per_source()
+    test_rate_by_source_mixed_flags()
+    test_rate_by_source_ignores_nan_and_empty_source()
+    print("tests/test_rate_by_source.py: ok")

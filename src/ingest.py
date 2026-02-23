@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .quality import check_date_ranges, check_duplicates, check_required_columns, check_status_values
 from .schema import DATE_COLUMNS, EXPECTED_COLUMNS, NUMERIC_COLUMNS, SYNONYM_MAPPING, normalize_column_name
 
 
@@ -99,6 +100,15 @@ def _print_summary(df: pd.DataFrame) -> None:
         print(f"- {column}: {int(missing_count)}")
 
 
+def _print_quality_summary(results: list[dict[str, object]]) -> None:
+    print("\n=== Data Quality Checks ===")
+    for result in results:
+        status = str(result.get("status", "INFO"))
+        name = str(result.get("name", "unknown_check"))
+        message = str(result.get("message", ""))
+        print(f"[{status}] {name}: {message}")
+
+
 def run_ingestion(
     raw_file: Path | str = RAW_FILE,
     processed_file: Path | str = PROCESSED_FILE,
@@ -120,6 +130,32 @@ def run_ingestion(
     df = _convert_numeric(df)
 
     _warn_missing_expected_columns(df)
+
+    required_columns = ["bewerbungsdatum", "unternehmen", "status"]
+    status_tokens = [
+        "absage",
+        "abgelehnt",
+        "interview",
+        "gespraech",
+        "gesprach",
+        "angebot",
+        "offer",
+        "zusage",
+        "eingangsbestaetigung",
+        "antwort",
+        "rueckmeldung",
+    ]
+    quality_results = [
+        check_required_columns(df, required_columns),
+        check_date_ranges(df, "bewerbungsdatum"),
+        check_status_values(df, status_tokens),
+        check_duplicates(df),
+    ]
+    _print_quality_summary(quality_results)
+
+    required_result = quality_results[0]
+    if str(required_result.get("status")) == "FAIL":
+        raise ValueError(str(required_result.get("message", "Pflichtspalten fehlen.")))
 
     processed_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(processed_path, index=False, encoding="utf-8")
