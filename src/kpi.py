@@ -159,6 +159,34 @@ def kpi_by_source(df: pd.DataFrame) -> pd.DataFrame:
     return grouped.sort_values("counts", ascending=False)
 
 
+def rate_by_source(df: pd.DataFrame, flag_col: str, source_col: str = "quelle") -> pd.DataFrame:
+    _require_columns(df, [source_col, flag_col])
+
+    out = df.copy()
+    out[source_col] = out[source_col].where(out[source_col].notna(), pd.NA)
+    out[source_col] = out[source_col].astype("string").str.strip()
+    out = out[out[source_col].notna() & out[source_col].ne("")]
+
+    if out.empty:
+        return pd.DataFrame(columns=["quelle", "counts", "flagged", "rate"])
+
+    all_sources = pd.Index(out[source_col].dropna().unique(), name="quelle")
+    out["_flag"] = pd.to_numeric(out[flag_col], errors="coerce").fillna(0)
+
+    grouped = (
+        out.groupby(source_col, dropna=False)
+        .agg(counts=(source_col, "size"), flagged=("_flag", "sum"))
+        .reindex(all_sources)
+    )
+    grouped["counts"] = grouped["counts"].fillna(0)
+    grouped["flagged"] = grouped["flagged"].fillna(0)
+    grouped["rate"] = np.where(grouped["counts"] > 0, grouped["flagged"] / grouped["counts"], 0.0)
+    grouped["rate"] = grouped["rate"].fillna(0.0)
+
+    result = grouped.reset_index()
+    return result.sort_values(["counts", "quelle"], ascending=[False, True]).reset_index(drop=True)
+
+
 def kpi_by_work_model(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["arbeitsmodell", "status"])
     out = _ensure_status_flags(df)

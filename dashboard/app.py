@@ -29,6 +29,7 @@ from src.kpi import (
     kpi_by_work_model,
     load_processed,
     ranking_vs_interview,
+    rate_by_source,
     rejection_count,
     rejection_rate,
     response_count,
@@ -144,6 +145,11 @@ if "status" in filtered.columns:
     if selected_status:
         filtered = filtered[filtered["status"].astype(str).str.strip().isin(selected_status)]
 
+if "interviewed_flag" not in filtered.columns:
+    filtered["interviewed_flag"] = filtered.get("is_interview", False)
+if "ghosted_flag" not in filtered.columns:
+    filtered["ghosted_flag"] = filtered.get("is_ghosted", False)
+
 top1, top2, top3, top4, top5, top6 = st.columns(6)
 bottom1, bottom2, bottom3, bottom4, bottom5 = st.columns(5)
 
@@ -221,19 +227,21 @@ left2, right2 = st.columns(2)
 with left2:
     st.subheader("Interviewquote nach Quelle")
     try:
-        source_kpi = kpi_by_source(filtered)
-        if not source_kpi.empty:
-            fig_source = px.bar(
-                source_kpi,
-                x="quelle",
-                y="interview_rate",
-                hover_data=["counts"],
-                labels={"quelle": "Quelle", "interview_rate": "Interviewquote"},
-            )
-            fig_source.update_yaxes(tickformat=".0%")
-            st.plotly_chart(fig_source, use_container_width=True)
+        source_rates = rate_by_source(filtered, "interviewed_flag")
+        if source_rates.empty or source_rates["counts"].sum() == 0:
+            st.info("Keine Daten für die aktuelle Filterauswahl.")
         else:
-            st.info("Keine Daten fuer Quelle vorhanden.")
+            fig_source = px.bar(
+                source_rates,
+                x="quelle",
+                y="rate",
+                hover_data={"counts": True, "rate": ":.0%"},
+                labels={"quelle": "Quelle", "rate": "Interviewquote"},
+            )
+            fig_source.update_yaxes(tickformat=".0%", range=[0, 1])
+            st.plotly_chart(fig_source, use_container_width=True)
+            if interview_value == 0:
+                st.caption("Derzeit keine Interviews im ausgewählten Zeitraum/Filter.")
     except ValueError as exc:
         st.info(str(exc))
 
@@ -258,25 +266,21 @@ with right2:
 st.subheader("Ghosting nach Quelle")
 if "quelle" in filtered.columns:
     try:
-        source_ghost = filtered.copy()
-        source_ghost["quelle"] = source_ghost["quelle"].fillna("Unbekannt").astype(str).str.strip()
-        source_ghost = (
-            source_ghost.groupby("quelle", dropna=False)
-            .agg(counts=("quelle", "size"), ghosted=("is_ghosted", "sum"))
-            .reset_index()
-        )
-        source_ghost["ghosted_rate"] = source_ghost["ghosted"] / source_ghost["counts"]
-        source_ghost = source_ghost.sort_values("counts", ascending=False)
-
-        fig_ghost = px.bar(
-            source_ghost,
-            x="quelle",
-            y="ghosted_rate",
-            hover_data=["counts", "ghosted"],
-            labels={"quelle": "Quelle", "ghosted_rate": "Ghosting-Quote"},
-        )
-        fig_ghost.update_yaxes(tickformat=".0%")
-        st.plotly_chart(fig_ghost, use_container_width=True)
+        source_rates = rate_by_source(filtered, "ghosted_flag")
+        if source_rates.empty or source_rates["counts"].sum() == 0:
+            st.info("Keine Daten für die aktuelle Filterauswahl.")
+        else:
+            fig_ghost = px.bar(
+                source_rates,
+                x="quelle",
+                y="rate",
+                hover_data={"counts": True, "rate": ":.0%"},
+                labels={"quelle": "Quelle", "rate": "Ghosting-Quote"},
+            )
+            fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
+            st.plotly_chart(fig_ghost, use_container_width=True)
+            if ghosted_value == 0:
+                st.caption("Derzeit kein Ghosting in der Auswahl.")
     except Exception as exc:  # pragma: no cover
         st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
 else:
