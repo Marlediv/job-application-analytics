@@ -1,103 +1,130 @@
 # Job Application Analytics
 
-## Projektziel
-Dieses Repository analysiert Bewerbungsdaten aus einer Excel-Datei und stellt zentrale KPIs in einem Streamlit-Dashboard dar. Ziel ist ein reproduzierbares Showcase-Projekt fuer Bewerbungsprozesse.
-
-## Projektstruktur
-- `data/raw/`: Rohdaten (inkl. `Bewerbungsliste.xlsx`)
-- `data/processed/`: aufbereitete Daten (`applications.csv`)
-- `src/`: Ingestion- und KPI-Logik
-- `dashboard/`: Streamlit-App
-- `docs/`: KPI-Dokumentation
-- `notebooks/`: explorative Analysen
-- `screenshots/`: Dashboard-Screenshots
-- `tests/`: Platz fuer Tests
-- `.github/workflows/`: CI-Pipeline fuer Build- und Testchecks
+End-to-End Analytics Pipeline zur Analyse des Bewerbungsprozesses.
+Fokus auf Data Ingestion, Data Quality, KPI-Design, Insight-Engine,
+CI/CD und containerisiertem Deployment auf Raspberry Pi.
 
 ## Showcase Features
-- End-to-end Pipeline: Excel-Ingestion (`src/ingest.py`) nach `data/processed/applications.csv`
-- Produktreifes Dashboard: KPI-Karten, Datenstand, Key Insights, Funnel, Export-Funktionen
-- Data Quality: Required-Column-, Datums-, Status- und Duplicate-Checks in `src/quality.py`
-- Reproduzierbarkeit: einfache Testskripte in `tests/` mit direkten `assert`-Checks
-- CI-Absicherung: GitHub Actions Workflow (`.github/workflows/ci.yml`)
-- Deployment-ready: Streamlit lokal oder per Docker/Docker Compose (Raspberry Pi geeignet)
+- Ingestion & Schema-Normalisierung (Synonym-Mapping, Trim, Typkonvertierung)
+- Data Quality Layer (Required Columns, Date Checks, Duplicates, Status Validation)
+- KPI Layer mit Funnel-Conversion & Ghosting-Metriken
+- Insight-Engine mit automatischen Business-Callouts
+- Markdown Report Export
+- Robuste Fallback-Charts
+- Docker Deployment (Raspi) mit persistentem Volume
+- GitHub Actions CI (Compile + Tests)
 
 ## Architektur
+![Architektur](docs/architecture.png)
+
+Hinweis: `docs/architecture.png` ist aktuell ein Platzhalter. Source of Truth ist `docs/architecture.mmd`.
+
 ```mermaid
 flowchart LR
-    subgraph Raw Layer
-        A[data/raw/Bewerbungsliste.xlsx]
-    end
+    User[Browser User]
+    Excel[Excel Upload]
+    Streamlit[Streamlit App<br>Docker Container]
+    Raw[data/raw]
+    Ingest[src.ingest]
+    Processed[data/processed/applications.csv]
+    KPI[src.kpi]
+    Insights[src.insights]
+    Report[src.report]
+    CI[GitHub Actions CI]
+    Volume[(Docker Volume ./data:/app/data)]
 
-    subgraph Processing Layer
-        B[src/ingest.py]
-        C[data/processed/applications.csv]
-    end
-
-    subgraph Analytics Layer
-        D[src/kpi.py]
-    end
-
-    subgraph Presentation Layer
-        E[dashboard/app.py (Streamlit)]
-    end
-
-    A --> B --> C --> D --> E
+    User --> Excel
+    Excel --> Streamlit
+    Streamlit --> Raw
+    Raw --> Ingest
+    Ingest --> Processed
+    Processed --> KPI
+    KPI --> Insights
+    Insights --> Streamlit
+    Insights --> Report
+    CI --> Ingest
+    Volume --- Raw
+    Volume --- Processed
 ```
 
-## Setup
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+## Datenfluss
+1. Excel wird hochgeladen (oder in `data/raw` abgelegt).
+2. Ingestion normalisiert + validiert Daten.
+3. Processed CSV wird erzeugt.
+4. KPI- und Insight-Layer speisen das Dashboard.
 
-## Pipeline ausfuehren
+## Datenformat & Schema (Data Contract)
+- Das Dashboard erwartet eine strukturierte Excel-Datei.
+- Spalten werden in der Ingestion normalisiert (inkl. Synonyme und Typen).
+- Fehlende Pflichtspalten fuehren zu einem DQ-FAIL.
+
+| Spalte | Typ | Pflicht | Beschreibung |
+| --- | --- | --- | --- |
+| bewerbungsdatum | Datum | Ja | Datum der Bewerbung |
+| unternehmen | String | Ja | Firmenname |
+| stelle | String | Ja | Position |
+| quelle | String | Ja | Bewerbungsquelle |
+| status | String | Ja | Prozessstatus |
+| arbeitsmodell | String | Nein | remote/hybrid/onsite |
+| ranking_score | Float | Nein | Eigene Bewertung (0-1) |
+| wartezeit_tage | Integer | Nein | Wartezeit |
+
+Wichtige Regeln:
+- Erlaubte Statuswerte (Muster): `absage`, `abgelehnt`, `interview`, `gespraech`, `angebot`, `offer`, `zusage`, `eingangsbestaetigung`, `antwort`, `rueckmeldung`.
+- Unbekannte Statuswerte fuehren zu `WARN` (Pipeline laeuft weiter).
+- Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
+
+Eine Beispielstruktur befindet sich unter `docs/example_schema.csv`.
+
+## Data Quality Checks
+- Required Column Check
+- Date Validation (keine Future-Dates)
+- Duplicate Detection
+- Status Validation
+
+Verhalten:
+- `FAIL` stoppt die Pipeline.
+- `WARN` protokolliert einen Hinweis, Verarbeitung laeuft weiter.
+
+## Reproduzierbarkeit
+- CI Workflow: `.github/workflows/ci.yml`
+- Compile-Checks: `python -m compileall src dashboard`
+- Low-friction Tests (ohne pytest): `tests/test_kpi_flags.py`, `tests/test_rate_by_source.py`, `tests/test_quality.py`
+
+## Lokale Nutzung
 ```bash
 python -m src.ingest
-```
-
-## Dashboard starten
-```bash
 streamlit run dashboard/app.py
 ```
 
-## Daten aktualisieren
-Im Dashboard links unter `Daten-Upload` eine neue Bewerbungsliste (`.xlsx`) hochladen.
-Die Pipeline verarbeitet die Datei automatisch und aktualisiert die KPIs.
-
 ## Docker (Raspberry Pi)
 ```bash
-docker compose build
-docker compose up -d
+docker compose up -d --build
 ```
 
-Zugriff im Browser:
+Zugriff:
 `http://<raspi-ip>:8501`
 
-Hinweis:
-- Auf dem Raspberry Pi ggf. `docker compose` statt `docker-compose` verwenden.
-- Daten-Uploads im Dashboard werden im Volume unter `./data` persistiert.
+## Report-Export
+```bash
+python -m src.report
+```
+Ausgabe:
+`reports/insights.md`
 
-## Nutzung
-- Insight-Report erzeugen: `python -m src.report`
-- Ergebnis: `reports/insights.md`
+## Projektstruktur
+- `dashboard/`: Streamlit-App
+- `src/`: Ingestion, DQ, KPI, Insights, Report
+- `data/raw/`: Excel-Uploads
+- `data/processed/`: aufbereitete CSV (`applications.csv`)
+- `docs/`: Architektur, Schema-Beispiel, KPI-Doku
+- `reports/`: generierte Reports
+- `tests/`: testbare Skripte via `python tests/<datei>.py`
+- `.github/workflows/`: CI-Pipeline
 
-## Screenshots
-- `screenshots/dashboard_overview.png` (Platzhalter)
-- `screenshots/dashboard_funnel_and_insights.png` (Platzhalter)
-- `screenshots/dashboard_quality_and_exports.png` (Platzhalter)
-
-## KPI-Definitionen
-Kurze Definitionen der berechneten Kennzahlen stehen in `docs/kpi_definition.md`.
-Ergaenzt wurden u. a. Rueckmeldequote, Ghosting-Quote und Funnel-Conversion-Rates.
-
-## Key Insights
-
-- Interviewquote: X %
-- Durchschnittliche Reaktionszeit: X Tage
-- Höchste Conversion-Rate über Quelle: X
-- Arbeitsmodell mit bester Erfolgsquote: X
-- Korrelation Ranking Score vs. Interview: (positiv / schwach / keine)
-
-Diese Analyse dient der datenbasierten Optimierung der Bewerbungsstrategie.
+## Roadmap
+- PostgreSQL Backend
+- Authentifizierung / Basic Auth
+- Scheduled Ingestion
+- PDF Export
+- Multi-User Tracking

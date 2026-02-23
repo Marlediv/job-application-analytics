@@ -1,0 +1,8 @@
+bewerbungsdatum,unternehmen,stelle,quelle,status,arbeitsmodell,ranking_score,wartezeit_tage
+2025-01-08,TechNova GmbH,Data Engineer,LinkedIn,Bewerbung versendet,remote,0.78,5
+2025-01-15,Finlytics AG,Analytics Engineer,XING,Eingangsbestaetigung erhalten,hybrid,0.81,12
+2025-01-22,CloudForge,Data Analyst,StepStone,Interview Runde 1,onsite,0.74,18
+2025-01-28,NeoRetail,BI Engineer,Referral,Absage erhalten,remote,0.69,9
+2025-02-03,GreenGrid,Data Engineer,Karriereseite,In Pruefung,hybrid,0.83,22
+2025-02-11,HealthData Labs,Machine Learning Engineer,LinkedIn,Angebot erhalten,remote,0.9,16
+2025-02-19,ScaleOps,Data Platform Engineer,XING,Keine Rueckmeldung,hybrid,0.72,34

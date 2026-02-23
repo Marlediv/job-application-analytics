@@ -1,0 +1,25 @@
+flowchart LR
+    User[Browser User]
+    Excel[Excel Upload]
+    Streamlit[Streamlit App<br>Docker Container]
+    Raw[data/raw]
+    Ingest[src.ingest]
+    Processed[data/processed/applications.csv]
+    KPI[src.kpi]
+    Insights[src.insights]
+    Report[src.report]
+    CI[GitHub Actions CI]
+    Volume[(Docker Volume ./data:/app/data)]
+
+    User --> Excel
+    Excel --> Streamlit
+    Streamlit --> Raw
+    Raw --> Ingest
+    Ingest --> Processed
+    Processed --> KPI
+    KPI --> Insights
+    Insights --> Streamlit
+    Insights --> Report
+    CI --> Ingest
+    Volume --- Raw
+    Volume --- Processed
