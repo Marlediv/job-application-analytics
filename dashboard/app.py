@@ -281,7 +281,7 @@ with left:
             fig_time = px.bar(monthly, x="monat", y="anzahl", labels={"monat": "Monat", "anzahl": "Bewerbungen"})
             apply_chart_layout(fig_time)
             fig_time.update_yaxes(rangemode="tozero", tickformat=",d")
-            st.plotly_chart(fig_time, use_container_width=True)
+            st.plotly_chart(fig_time, use_container_width=True, key="applications_over_time_chart")
         else:
             st.info("Keine Daten für die aktuelle Filterauswahl.")
     else:
@@ -294,7 +294,7 @@ with right:
     elif not funnel_df.empty:
         fig_funnel = go.Figure(go.Funnel(y=funnel_df["stage"], x=funnel_df["count"]))
         apply_chart_layout(fig_funnel)
-        st.plotly_chart(fig_funnel, use_container_width=True)
+        st.plotly_chart(fig_funnel, use_container_width=True, key="funnel_chart")
 
         st.caption("Conversion-Tabelle")
         funnel_display = funnel_df.copy()
@@ -343,7 +343,7 @@ with left2:
                 )
                 apply_chart_layout(fig_counts)
                 fig_counts.update_yaxes(rangemode="tozero", tickformat=",d")
-                st.plotly_chart(fig_counts, use_container_width=True)
+                st.plotly_chart(fig_counts, use_container_width=True, key="interview_count_by_source_chart")
             else:
                 fig_source = px.bar(
                     source_rates,
@@ -354,7 +354,7 @@ with left2:
                 )
                 apply_chart_layout(fig_source)
                 fig_source.update_yaxes(tickformat=".0%", range=[0, 1])
-                st.plotly_chart(fig_source, use_container_width=True)
+                st.plotly_chart(fig_source, use_container_width=True, key="interview_rate_by_source_chart")
         except ValueError as exc:
             st.info(str(exc))
 
@@ -374,7 +374,7 @@ with right2:
                     labels={"status": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
                 )
                 apply_chart_layout(fig_wait)
-                st.plotly_chart(fig_wait, use_container_width=True)
+                st.plotly_chart(fig_wait, use_container_width=True, key="waiting_time_by_status_chart")
             else:
                 st.info("Keine Daten für die aktuelle Filterauswahl.")
         except ValueError as exc:
@@ -415,7 +415,7 @@ with left3:
                 )
                 apply_chart_layout(fig_counts)
                 fig_counts.update_yaxes(rangemode="tozero", tickformat=",d")
-                st.plotly_chart(fig_counts, use_container_width=True)
+                st.plotly_chart(fig_counts, use_container_width=True, key="ghosting_count_by_source_chart")
             else:
                 fig_ghost = px.bar(
                     source_rates,
@@ -426,7 +426,7 @@ with left3:
                 )
                 apply_chart_layout(fig_ghost)
                 fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
-                st.plotly_chart(fig_ghost, use_container_width=True)
+                st.plotly_chart(fig_ghost, use_container_width=True, key="ghosting_rate_by_source_chart")
         except Exception as exc:  # pragma: no cover
             st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
     else:
@@ -456,7 +456,7 @@ with right3:
                     )
                     apply_chart_layout(fig_hist)
                     fig_hist.update_yaxes(rangemode="tozero", tickformat=",d")
-                    st.plotly_chart(fig_hist, use_container_width=True)
+                    st.plotly_chart(fig_hist, use_container_width=True, key="ranking_histogram_chart")
             st.caption("Das Scatter-Diagramm wird automatisch aktiv, sobald Interviews in der Auswahl vorhanden sind.")
         else:
             if "ranking_score" not in filtered.columns:
@@ -491,7 +491,7 @@ with right3:
                     )
                     apply_chart_layout(fig_scatter)
                     fig_scatter.update_yaxes(type="category")
-                    st.plotly_chart(fig_scatter, use_container_width=True)
+                    st.plotly_chart(fig_scatter, use_container_width=True, key="ranking_scatter_chart")
 
 st.divider()
 
