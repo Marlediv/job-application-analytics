@@ -55,6 +55,11 @@ def render_kpi(label: str, value: str, help_text: str | None = None) -> None:
         st.caption(help_text)
 
 
+def apply_chart_layout(fig: go.Figure) -> go.Figure:
+    fig.update_layout(height=340, margin=dict(l=20, r=20, t=50, b=30))
+    return fig
+
+
 st.sidebar.header("Daten-Upload")
 uploaded_file = st.sidebar.file_uploader("Neue Bewerbungsliste (.xlsx)", type=["xlsx"])
 
@@ -217,6 +222,8 @@ with left:
                 .reset_index(name="anzahl")
             )
             fig_time = px.bar(monthly, x="monat", y="anzahl", labels={"monat": "Monat", "anzahl": "Bewerbungen"})
+            apply_chart_layout(fig_time)
+            fig_time.update_yaxes(rangemode="tozero", tickformat=",d")
             st.plotly_chart(fig_time, use_container_width=True)
         else:
             st.info("Keine Daten für die aktuelle Filterauswahl.")
@@ -229,6 +236,7 @@ with right:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
     elif not funnel_df.empty:
         fig_funnel = go.Figure(go.Funnel(y=funnel_df["stage"], x=funnel_df["count"]))
+        apply_chart_layout(fig_funnel)
         st.plotly_chart(fig_funnel, use_container_width=True)
 
         st.caption("Conversion-Tabelle")
@@ -249,23 +257,47 @@ with left2:
     st.subheader("Interviewquote nach Quelle")
     if filtered.empty:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
+    elif "quelle" not in filtered.columns:
+        st.info("Spalte 'quelle' fehlt, Interviewquote nach Quelle nicht verfuegbar.")
     else:
         try:
+            counts_by_source = (
+                filtered.assign(quelle=filtered["quelle"].astype("string").str.strip())
+                .loc[lambda d: d["quelle"].notna() & d["quelle"].ne("")]
+                .groupby("quelle", dropna=False)
+                .size()
+                .reset_index(name="counts")
+                .sort_values(["counts", "quelle"], ascending=[False, True])
+            )
             source_rates = rate_by_source(filtered, "interviewed_flag")
-            if source_rates.empty or source_rates["counts"].sum() == 0:
+            flagged_sum = pd.to_numeric(source_rates["flagged"], errors="coerce").fillna(0).sum() if not source_rates.empty else 0
+
+            if source_rates.empty or source_rates["counts"].sum() == 0 or counts_by_source.empty:
                 st.info("Keine Daten für die aktuelle Filterauswahl.")
+            elif interview_value == 0 or flagged_sum == 0:
+                st.info("Keine Interviews in der aktuellen Auswahl. Stattdessen: Bewerbungen nach Quelle.")
+                fig_counts = px.bar(
+                    counts_by_source,
+                    x="quelle",
+                    y="counts",
+                    hover_data={"quelle": True, "counts": True},
+                    labels={"quelle": "Quelle", "counts": "Bewerbungen"},
+                    title="Bewerbungen nach Quelle",
+                )
+                apply_chart_layout(fig_counts)
+                fig_counts.update_yaxes(rangemode="tozero", tickformat=",d")
+                st.plotly_chart(fig_counts, use_container_width=True)
             else:
                 fig_source = px.bar(
                     source_rates,
                     x="quelle",
                     y="rate",
-                    hover_data={"counts": True, "rate": ":.0%"},
+                    hover_data={"quelle": True, "counts": True, "rate": ":.0%"},
                     labels={"quelle": "Quelle", "rate": "Interviewquote"},
                 )
+                apply_chart_layout(fig_source)
                 fig_source.update_yaxes(tickformat=".0%", range=[0, 1])
                 st.plotly_chart(fig_source, use_container_width=True)
-                if interview_value == 0:
-                    st.caption("Derzeit keine Interviews im ausgewählten Zeitraum/Filter.")
         except ValueError as exc:
             st.info(str(exc))
 
@@ -284,6 +316,7 @@ with right2:
                     hover_data=["median_wait", "counts"],
                     labels={"status": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
                 )
+                apply_chart_layout(fig_wait)
                 st.plotly_chart(fig_wait, use_container_width=True)
             else:
                 st.info("Keine Daten für die aktuelle Filterauswahl.")
@@ -300,21 +333,43 @@ with left3:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
     elif "quelle" in filtered.columns:
         try:
+            counts_by_source = (
+                filtered.assign(quelle=filtered["quelle"].astype("string").str.strip())
+                .loc[lambda d: d["quelle"].notna() & d["quelle"].ne("")]
+                .groupby("quelle", dropna=False)
+                .size()
+                .reset_index(name="counts")
+                .sort_values(["counts", "quelle"], ascending=[False, True])
+            )
             source_rates = rate_by_source(filtered, "ghosted_flag")
-            if source_rates.empty or source_rates["counts"].sum() == 0:
+            flagged_sum = pd.to_numeric(source_rates["flagged"], errors="coerce").fillna(0).sum() if not source_rates.empty else 0
+
+            if source_rates.empty or source_rates["counts"].sum() == 0 or counts_by_source.empty:
                 st.info("Keine Daten für die aktuelle Filterauswahl.")
+            elif ghosted_value == 0 or flagged_sum == 0:
+                st.info("Kein Ghosting in der aktuellen Auswahl. Stattdessen: Bewerbungen nach Quelle.")
+                fig_counts = px.bar(
+                    counts_by_source,
+                    x="quelle",
+                    y="counts",
+                    hover_data={"quelle": True, "counts": True},
+                    labels={"quelle": "Quelle", "counts": "Bewerbungen"},
+                    title="Bewerbungen nach Quelle",
+                )
+                apply_chart_layout(fig_counts)
+                fig_counts.update_yaxes(rangemode="tozero", tickformat=",d")
+                st.plotly_chart(fig_counts, use_container_width=True)
             else:
                 fig_ghost = px.bar(
                     source_rates,
                     x="quelle",
                     y="rate",
-                    hover_data={"counts": True, "rate": ":.0%"},
+                    hover_data={"quelle": True, "counts": True, "rate": ":.0%"},
                     labels={"quelle": "Quelle", "rate": "Ghosting-Quote"},
                 )
+                apply_chart_layout(fig_ghost)
                 fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
                 st.plotly_chart(fig_ghost, use_container_width=True)
-                if ghosted_value == 0:
-                    st.caption("Derzeit kein Ghosting in der Auswahl.")
         except Exception as exc:  # pragma: no cover
             st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
     else:
@@ -342,6 +397,8 @@ with right3:
                         nbins=20,
                         labels={"ranking_score": "Ranking Score", "count": "Anzahl"},
                     )
+                    apply_chart_layout(fig_hist)
+                    fig_hist.update_yaxes(rangemode="tozero", tickformat=",d")
                     st.plotly_chart(fig_hist, use_container_width=True)
             st.caption("Das Scatter-Diagramm wird automatisch aktiv, sobald Interviews in der Auswahl vorhanden sind.")
         else:
@@ -375,6 +432,7 @@ with right3:
                         hover_data=hover_cols,
                         opacity=0.7,
                     )
+                    apply_chart_layout(fig_scatter)
                     fig_scatter.update_yaxes(type="category")
                     st.plotly_chart(fig_scatter, use_container_width=True)
 
