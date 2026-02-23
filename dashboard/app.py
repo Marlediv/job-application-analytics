@@ -25,10 +25,8 @@ from src.kpi import (
     ghosted_rate,
     interview_count,
     interview_rate,
-    kpi_by_source,
     kpi_by_work_model,
     load_processed,
-    ranking_vs_interview,
     rate_by_source,
     rejection_count,
     rejection_rate,
@@ -49,6 +47,12 @@ RAW_FILE = RAW_DIR / "Bewerbungsliste.xlsx"
 
 def _load_data() -> pd.DataFrame:
     return load_processed()
+
+
+def render_kpi(label: str, value: str, help_text: str | None = None) -> None:
+    st.metric(label, value)
+    if help_text:
+        st.caption(help_text)
 
 
 st.sidebar.header("Daten-Upload")
@@ -150,9 +154,6 @@ if "interviewed_flag" not in filtered.columns:
 if "ghosted_flag" not in filtered.columns:
     filtered["ghosted_flag"] = filtered.get("is_ghosted", False)
 
-top1, top2, top3, top4, top5, top6 = st.columns(6)
-bottom1, bottom2, bottom3, bottom4, bottom5 = st.columns(5)
-
 try:
     total_value = total_applications(filtered)
     active_value = active_applications(filtered)
@@ -170,18 +171,31 @@ except ValueError as exc:
     st.error(f"KPI-Berechnung nicht moeglich: {exc}")
     st.stop()
 
-top1.metric("Gesamt", f"{total_value}")
-top2.metric("Aktiv", f"{active_value}")
-top3.metric("Interviews", f"{interview_value}")
-top4.metric("Interviewquote", f"{interview_rate_value:.1%}")
-top5.metric("Absagen", f"{rejection_value}")
-top6.metric("Absagequote", f"{rejection_rate_value:.1%}")
+top1, top2, top3, top4, top5, top6 = st.columns(6)
+with top1:
+    render_kpi("Gesamt", f"{total_value}")
+with top2:
+    render_kpi("Aktiv", f"{active_value}")
+with top3:
+    render_kpi("Rueckmeldungen", f"{response_value}")
+with top4:
+    render_kpi("Interviews", f"{interview_value}")
+with top5:
+    render_kpi("Absagen", f"{rejection_value}")
+with top6:
+    render_kpi("Ghosted", f"{ghosted_value}")
 
-bottom1.metric("Rueckmeldungen", f"{response_value}")
-bottom2.metric("Rueckmeldequote", f"{response_rate_value:.1%}")
-bottom3.metric("Ghosted", f"{ghosted_value}")
-bottom4.metric("Ghosting-Quote", f"{ghosted_rate_value:.1%}")
-bottom5.metric("Ø Wartezeit", "-" if pd.isna(avg_wait_value) else f"{avg_wait_value:.1f} Tage")
+bottom1, bottom2, bottom3, bottom4, bottom5 = st.columns(5)
+with bottom1:
+    render_kpi("Rueckmeldequote", f"{response_rate_value:.1%}")
+with bottom2:
+    render_kpi("Interviewquote", f"{interview_rate_value:.1%}")
+with bottom3:
+    render_kpi("Absagequote", f"{rejection_rate_value:.1%}")
+with bottom4:
+    render_kpi("Ghosting-Quote", f"{ghosted_rate_value:.1%}")
+with bottom5:
+    render_kpi("Ø Wartezeit", "-" if pd.isna(avg_wait_value) else f"{avg_wait_value:.1f} Tage")
 
 st.divider()
 
@@ -189,7 +203,9 @@ left, right = st.columns(2)
 
 with left:
     st.subheader("Bewerbungen ueber Zeit")
-    if "bewerbungsdatum" in filtered.columns and not filtered.empty:
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+    elif "bewerbungsdatum" in filtered.columns:
         ts = filtered.copy()
         ts["bewerbungsdatum"] = pd.to_datetime(ts["bewerbungsdatum"], errors="coerce")
         ts = ts.dropna(subset=["bewerbungsdatum"])
@@ -203,16 +219,19 @@ with left:
             fig_time = px.bar(monthly, x="monat", y="anzahl", labels={"monat": "Monat", "anzahl": "Bewerbungen"})
             st.plotly_chart(fig_time, use_container_width=True)
         else:
-            st.info("Keine gueltigen Datumswerte verfuegbar.")
+            st.info("Keine Daten für die aktuelle Filterauswahl.")
     else:
         st.info("Spalte 'bewerbungsdatum' fehlt oder keine Daten vorhanden.")
 
 with right:
     st.subheader("Funnel")
-    if not funnel_df.empty:
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+    elif not funnel_df.empty:
         fig_funnel = go.Figure(go.Funnel(y=funnel_df["stage"], x=funnel_df["count"]))
         st.plotly_chart(fig_funnel, use_container_width=True)
 
+        st.caption("Conversion-Tabelle")
         funnel_display = funnel_df.copy()
         funnel_display["rate_from_prev"] = funnel_display["rate_from_prev"].map(
             lambda v: "-" if pd.isna(v) else f"{v:.1%}"
@@ -220,94 +239,156 @@ with right:
         funnel_display["rate_from_total"] = funnel_display["rate_from_total"].map(lambda v: f"{v:.1%}")
         st.dataframe(funnel_display, use_container_width=True)
     else:
-        st.info("Keine Funnel-Daten verfuegbar.")
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+
+st.divider()
 
 left2, right2 = st.columns(2)
 
 with left2:
     st.subheader("Interviewquote nach Quelle")
-    try:
-        source_rates = rate_by_source(filtered, "interviewed_flag")
-        if source_rates.empty or source_rates["counts"].sum() == 0:
-            st.info("Keine Daten für die aktuelle Filterauswahl.")
-        else:
-            fig_source = px.bar(
-                source_rates,
-                x="quelle",
-                y="rate",
-                hover_data={"counts": True, "rate": ":.0%"},
-                labels={"quelle": "Quelle", "rate": "Interviewquote"},
-            )
-            fig_source.update_yaxes(tickformat=".0%", range=[0, 1])
-            st.plotly_chart(fig_source, use_container_width=True)
-            if interview_value == 0:
-                st.caption("Derzeit keine Interviews im ausgewählten Zeitraum/Filter.")
-    except ValueError as exc:
-        st.info(str(exc))
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+    else:
+        try:
+            source_rates = rate_by_source(filtered, "interviewed_flag")
+            if source_rates.empty or source_rates["counts"].sum() == 0:
+                st.info("Keine Daten für die aktuelle Filterauswahl.")
+            else:
+                fig_source = px.bar(
+                    source_rates,
+                    x="quelle",
+                    y="rate",
+                    hover_data={"counts": True, "rate": ":.0%"},
+                    labels={"quelle": "Quelle", "rate": "Interviewquote"},
+                )
+                fig_source.update_yaxes(tickformat=".0%", range=[0, 1])
+                st.plotly_chart(fig_source, use_container_width=True)
+                if interview_value == 0:
+                    st.caption("Derzeit keine Interviews im ausgewählten Zeitraum/Filter.")
+        except ValueError as exc:
+            st.info(str(exc))
 
 with right2:
     st.subheader("Wartezeit nach Status")
-    try:
-        wait_kpi = wait_time_by_status(filtered)
-        if not wait_kpi.empty:
-            fig_wait = px.bar(
-                wait_kpi,
-                x="status",
-                y="avg_wait",
-                hover_data=["median_wait", "counts"],
-                labels={"status": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
-            )
-            st.plotly_chart(fig_wait, use_container_width=True)
-        else:
-            st.info("Keine Wartezeit-Daten verfuegbar.")
-    except ValueError as exc:
-        st.info(str(exc))
-
-st.subheader("Ghosting nach Quelle")
-if "quelle" in filtered.columns:
-    try:
-        source_rates = rate_by_source(filtered, "ghosted_flag")
-        if source_rates.empty or source_rates["counts"].sum() == 0:
-            st.info("Keine Daten für die aktuelle Filterauswahl.")
-        else:
-            fig_ghost = px.bar(
-                source_rates,
-                x="quelle",
-                y="rate",
-                hover_data={"counts": True, "rate": ":.0%"},
-                labels={"quelle": "Quelle", "rate": "Ghosting-Quote"},
-            )
-            fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
-            st.plotly_chart(fig_ghost, use_container_width=True)
-            if ghosted_value == 0:
-                st.caption("Derzeit kein Ghosting in der Auswahl.")
-    except Exception as exc:  # pragma: no cover
-        st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
-else:
-    st.info("Spalte 'quelle' fehlt, Ghosting nach Quelle nicht verfuegbar.")
-
-st.subheader("Ranking Score vs Interview")
-try:
-    ranking_df = ranking_vs_interview(filtered)
-    if not ranking_df.empty:
-        fig_scatter = px.scatter(
-            ranking_df,
-            x="ranking_score",
-            y="interviewed",
-            color="interviewed",
-            labels={"ranking_score": "Ranking Score", "interviewed": "Interviewed"},
-            opacity=0.7,
-        )
-        st.plotly_chart(fig_scatter, use_container_width=True)
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
     else:
-        st.info("Keine gueltigen Ranking Scores vorhanden.")
-except ValueError as exc:
-    st.info(str(exc))
+        try:
+            wait_kpi = wait_time_by_status(filtered)
+            if not wait_kpi.empty:
+                fig_wait = px.bar(
+                    wait_kpi,
+                    x="status",
+                    y="avg_wait",
+                    hover_data=["median_wait", "counts"],
+                    labels={"status": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
+                )
+                st.plotly_chart(fig_wait, use_container_width=True)
+            else:
+                st.info("Keine Daten für die aktuelle Filterauswahl.")
+        except ValueError as exc:
+            st.info(str(exc))
+
+st.divider()
+
+left3, right3 = st.columns(2)
+
+with left3:
+    st.subheader("Ghosting nach Quelle")
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+    elif "quelle" in filtered.columns:
+        try:
+            source_rates = rate_by_source(filtered, "ghosted_flag")
+            if source_rates.empty or source_rates["counts"].sum() == 0:
+                st.info("Keine Daten für die aktuelle Filterauswahl.")
+            else:
+                fig_ghost = px.bar(
+                    source_rates,
+                    x="quelle",
+                    y="rate",
+                    hover_data={"counts": True, "rate": ":.0%"},
+                    labels={"quelle": "Quelle", "rate": "Ghosting-Quote"},
+                )
+                fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
+                st.plotly_chart(fig_ghost, use_container_width=True)
+                if ghosted_value == 0:
+                    st.caption("Derzeit kein Ghosting in der Auswahl.")
+        except Exception as exc:  # pragma: no cover
+            st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
+    else:
+        st.info("Spalte 'quelle' fehlt, Ghosting nach Quelle nicht verfuegbar.")
+
+with right3:
+    st.subheader("Ranking")
+    if filtered.empty:
+        st.info("Keine Daten für die aktuelle Filterauswahl.")
+    else:
+        has_interviews = pd.to_numeric(filtered["interviewed_flag"], errors="coerce").fillna(0).sum() > 0
+        if not has_interviews:
+            if "ranking_score" not in filtered.columns:
+                st.info("Kein Ranking Score vorhanden – bitte Spalte 'ranking_score' pflegen, um dieses Diagramm zu nutzen.")
+            else:
+                ranking_plot = filtered.copy()
+                ranking_plot["ranking_score"] = pd.to_numeric(ranking_plot["ranking_score"], errors="coerce")
+                ranking_plot = ranking_plot.dropna(subset=["ranking_score"])
+                if ranking_plot.empty:
+                    st.info("Keine Daten für die aktuelle Filterauswahl.")
+                else:
+                    fig_hist = px.histogram(
+                        ranking_plot,
+                        x="ranking_score",
+                        nbins=20,
+                        labels={"ranking_score": "Ranking Score", "count": "Anzahl"},
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True)
+            st.caption("Das Scatter-Diagramm wird automatisch aktiv, sobald Interviews in der Auswahl vorhanden sind.")
+        else:
+            if "ranking_score" not in filtered.columns:
+                st.info("Kein Ranking Score vorhanden – bitte Spalte 'ranking_score' pflegen, um dieses Diagramm zu nutzen.")
+            else:
+                ranking_plot = filtered.copy()
+                ranking_plot["ranking_score"] = pd.to_numeric(ranking_plot["ranking_score"], errors="coerce")
+                ranking_plot["interviewed_flag"] = pd.to_numeric(
+                    ranking_plot["interviewed_flag"], errors="coerce"
+                ).fillna(0).gt(0)
+                ranking_plot = ranking_plot.dropna(subset=["ranking_score"])
+
+                if ranking_plot.empty:
+                    st.info("Keine Daten für die aktuelle Filterauswahl.")
+                else:
+                    ranking_plot["interviewed_label"] = ranking_plot["interviewed_flag"].map({False: "False", True: "True"})
+                    hover_cols = ["interviewed_label"]
+                    if "unternehmen" in ranking_plot.columns:
+                        hover_cols.append("unternehmen")
+                    if "stelle" in ranking_plot.columns:
+                        hover_cols.append("stelle")
+
+                    fig_scatter = px.scatter(
+                        ranking_plot,
+                        x="ranking_score",
+                        y="interviewed_label",
+                        color="interviewed_label",
+                        category_orders={"interviewed_label": ["False", "True"]},
+                        labels={"ranking_score": "Ranking Score", "interviewed_label": "Interviewed"},
+                        hover_data=hover_cols,
+                        opacity=0.7,
+                    )
+                    fig_scatter.update_yaxes(type="category")
+                    st.plotly_chart(fig_scatter, use_container_width=True)
+
+st.divider()
 
 st.subheader("KPI nach Arbeitsmodell")
-try:
-    model_kpi = kpi_by_work_model(filtered)
-    if not model_kpi.empty:
-        st.dataframe(model_kpi, use_container_width=True)
-except ValueError as exc:
-    st.info(str(exc))
+if filtered.empty:
+    st.info("Keine Daten für die aktuelle Filterauswahl.")
+else:
+    try:
+        model_kpi = kpi_by_work_model(filtered)
+        if not model_kpi.empty:
+            st.dataframe(model_kpi, use_container_width=True)
+        else:
+            st.info("Keine Daten für die aktuelle Filterauswahl.")
+    except ValueError as exc:
+        st.info(str(exc))
