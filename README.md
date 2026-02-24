@@ -1,4 +1,7 @@
 # Job Application Analytics
+[![CI](https://github.com/Marlediv/job-application-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/Marlediv/job-application-analytics/actions/workflows/ci.yml)
+![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
 End-to-End Analytics Pipeline zur Analyse des Bewerbungsprozesses.
 Fokus auf Data Ingestion, Data Quality, KPI-Design, Insight-Engine,
@@ -14,10 +17,34 @@ CI/CD und containerisiertem Deployment auf Raspberry Pi.
 - Docker Deployment (Raspi) mit persistentem Volume
 - GitHub Actions CI (Compile + Tests)
 
+## Quickstart (Docker)
+```bash
+git clone https://github.com/Marlediv/job-application-analytics.git
+cd job-application-analytics
+docker compose up -d --build
+```
+
+Aufruf:
+`http://<raspi-ip>:8501`
+
+## Quickstart (lokal)
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m src.ingest
+streamlit run dashboard/app.py
+```
+
 ## Architektur
 ![Architektur](docs/architecture.png)
 
-Hinweis: `docs/architecture.png` ist aktuell ein Platzhalter. Source of Truth ist `docs/architecture.mmd`.
+Source of Truth ist `docs/architecture.mmd`, `docs/architecture.png` wird daraus gerendert.
+
+Lokale Generierung:
+```bash
+npx -y @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.png -b transparent
+```
 
 ```mermaid
 flowchart LR
@@ -53,10 +80,16 @@ flowchart LR
 3. Processed CSV wird erzeugt.
 4. KPI- und Insight-Layer speisen das Dashboard.
 
+## Screenshots
+![Dashboard Overview](screenshots/dashboard_overview.png)
+![Funnel and Insights](screenshots/funnel_and_insights.png)
+![Export and DQ](screenshots/export_and_dq.png)
+
 ## Datenformat & Schema (Data Contract)
 - Das Dashboard erwartet eine strukturierte Excel-Datei.
 - Spalten werden in der Ingestion normalisiert (inkl. Synonyme und Typen).
 - Fehlende Pflichtspalten fuehren zu einem DQ-FAIL.
+- Die Excel-Datei benötigt eine Headerzeile mit den Spaltennamen; das Sheet wird automatisch erkannt (erstes sinnvolles Sheet).
 
 | Spalte | Typ | Pflicht | Beschreibung |
 | --- | --- | --- | --- |
@@ -74,7 +107,7 @@ Wichtige Regeln:
 - Unbekannte Statuswerte fuehren zu `WARN` (Pipeline laeuft weiter).
 - Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
 
-Eine Beispielstruktur befindet sich unter `docs/example_schema.csv`.
+Referenzstruktur: `docs/example_schema.csv`.
 
 ## Data Quality Checks
 - Required Column Check
@@ -104,6 +137,9 @@ docker compose up -d --build
 
 Zugriff:
 `http://<raspi-ip>:8501`
+
+## Privacy Note
+Hinweis: Keine personenbezogenen Daten ins Repo committen. `data/raw` und `data/processed` bleiben lokal via Volume.
 
 ## Report-Export
 ```bash
