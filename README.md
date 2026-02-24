@@ -88,7 +88,7 @@ flowchart LR
 ## Datenformat & Schema (Data Contract)
 - Das Dashboard erwartet eine strukturierte Excel-Datei.
 - Spalten werden in der Ingestion normalisiert (inkl. Synonyme und Typen).
-- Fehlende Pflichtspalten fuehren zu einem DQ-FAIL.
+- Fehlende Pflichtspalten führen zu einem DQ-FAIL.
 - Die Excel-Datei benötigt eine Headerzeile mit den Spaltennamen; das Sheet wird automatisch erkannt (erstes sinnvolles Sheet).
 
 | Spalte | Typ | Pflicht | Beschreibung |
@@ -103,8 +103,8 @@ flowchart LR
 | wartezeit_tage | Integer | Nein | Wartezeit |
 
 Wichtige Regeln:
-- Erlaubte Statuswerte (Muster): `absage`, `abgelehnt`, `interview`, `gespraech`, `angebot`, `offer`, `zusage`, `eingangsbestaetigung`, `antwort`, `rueckmeldung`.
-- Unbekannte Statuswerte fuehren zu `WARN` (Pipeline laeuft weiter).
+- Erlaubte Statuswerte (Muster): `absage`, `abgelehnt`, `interview`, `gespräch`, `angebot`, `offer`, `zusage`, `eingangsbestätigung`, `antwort`, `rückmeldung`.
+- Unbekannte Statuswerte führen zu `WARN` (Pipeline läuft weiter).
 - Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
 
 Referenzstruktur: `docs/example_schema.csv`.
@@ -117,7 +117,7 @@ Referenzstruktur: `docs/example_schema.csv`.
 
 Verhalten:
 - `FAIL` stoppt die Pipeline.
-- `WARN` protokolliert einen Hinweis, Verarbeitung laeuft weiter.
+- `WARN` protokolliert einen Hinweis, Verarbeitung läuft weiter.
 
 ## Reproduzierbarkeit
 - CI Workflow: `.github/workflows/ci.yml`
