@@ -318,6 +318,35 @@ def wait_time_by_status(df: pd.DataFrame) -> pd.DataFrame:
     return grouped
 
 
+def longest_no_response_case(df: pd.DataFrame) -> pd.Series | None:
+    _require_columns(df, ["status"])
+    out = _ensure_status_flags(df)
+    if "unternehmen" not in out.columns:
+        return None
+
+    candidates = out.copy()
+    candidates["unternehmen"] = candidates["unternehmen"].astype("string").str.strip()
+    candidates["effective_wait_time"] = pd.to_numeric(candidates["effective_wait_time"], errors="coerce")
+    candidates = candidates.loc[
+        candidates["unternehmen"].notna()
+        & candidates["unternehmen"].ne("")
+        & candidates["effective_wait_time"].notna()
+        & (candidates["effective_wait_time"] > 0)
+    ]
+    if candidates.empty:
+        return None
+
+    no_response = candidates.loc[candidates["status_canonical"].eq("Keine Rückmeldung")]
+    if not no_response.empty:
+        return no_response.sort_values("effective_wait_time", ascending=False).iloc[0]
+
+    ghosted = candidates.loc[candidates["is_ghosted"]]
+    if not ghosted.empty:
+        return ghosted.sort_values("effective_wait_time", ascending=False).iloc[0]
+
+    return None
+
+
 def ranking_vs_interview(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["ranking_score", "status"])
     out = _ensure_status_flags(df)

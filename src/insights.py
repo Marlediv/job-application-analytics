@@ -6,7 +6,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from .kpi import funnel_table, ghosted_rate, interview_count, wait_time_by_status
+from .kpi import funnel_table, ghosted_rate, interview_count, longest_no_response_case, wait_time_by_status
 
 
 def _top_source_by_applications(df: pd.DataFrame) -> str:
@@ -45,7 +45,7 @@ def _funnel_bottleneck(df: pd.DataFrame, funnel_df: pd.DataFrame | None = None) 
 
 
 def _highest_wait_status(df: pd.DataFrame) -> str:
-    if "status" not in df.columns or "wartezeit_tage" not in df.columns:
+    if "status" not in df.columns:
         return "Status mit hoechster Ø Wartezeit: nicht verfuegbar."
 
     wait_df = wait_time_by_status(df)
@@ -59,6 +59,17 @@ def _highest_wait_status(df: pd.DataFrame) -> str:
     )
 
 
+def _longest_no_response_company(df: pd.DataFrame) -> str | None:
+    case = longest_no_response_case(df)
+    if case is None:
+        return None
+
+    company = str(case["unternehmen"]).strip()
+    wait_time = int(float(case["effective_wait_time"]))
+    status = str(case["status_canonical"]).strip()
+    return f"Laengste Wartezeit ohne Antwort: {company} ({wait_time} Tage, {status})."
+
+
 def build_key_insights(
     df: pd.DataFrame,
     funnel_df: pd.DataFrame | None = None,
@@ -69,6 +80,10 @@ def build_key_insights(
         _funnel_bottleneck(df, funnel_df=funnel_df),
         _highest_wait_status(df),
     ]
+
+    no_response_insight = _longest_no_response_company(df)
+    if no_response_insight is not None:
+        insights.append(no_response_insight)
 
     interviews = interview_count(df)
     if interviews == 0:

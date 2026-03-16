@@ -11,7 +11,7 @@ CI/CD und containerisiertem Deployment auf Raspberry Pi.
 - Ingestion & Schema-Normalisierung (Synonym-Mapping, Trim, Typkonvertierung)
 - Data Quality Layer (Required Columns, Date Checks, Duplicates, Status Validation)
 - KPI Layer mit zentraler Status-Normalisierung, Funnel-Conversion & Ghosting-Metriken
-- Insight-Engine mit automatischen Business-Callouts
+- Insight-Engine mit automatischen Business-Callouts und Hervorhebung des Unternehmens mit der laengsten Wartezeit ohne Antwort
 - Markdown Report Export
 - Robuste Fallback-Charts
 - Docker Deployment (Raspi) mit persistentem Volume
