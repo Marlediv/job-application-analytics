@@ -133,7 +133,7 @@ def test_longest_no_response_case_prioritizes_no_response_status() -> None:
 
     assert case is not None
     assert str(case["unternehmen"]) == "Informationsfabrik"
-    assert any("Laengste Wartezeit ohne Antwort: Informationsfabrik (41 Tage, Keine Rückmeldung)." == line for line in insights)
+    assert any("Längste Wartezeit ohne Antwort: Informationsfabrik (41 Tage, Keine Rückmeldung)." == line for line in insights)
 
 
 def test_longest_no_response_case_falls_back_to_ghosted_case() -> None:
@@ -150,7 +150,7 @@ def test_longest_no_response_case_falls_back_to_ghosted_case() -> None:
 
     assert case is not None
     assert str(case["unternehmen"]) == "LikeMind Recruitment"
-    assert any("Laengste Wartezeit ohne Antwort: LikeMind Recruitment (24 Tage, Eingangsbestätigung)." == line for line in insights)
+    assert any("Längste Wartezeit ohne Antwort: LikeMind Recruitment (24 Tage, Eingangsbestätigung)." == line for line in insights)
 
 
 if __name__ == "__main__":
