@@ -222,7 +222,7 @@ try:
     response_rate_value = response_rate(filtered)
     ghosted_value = ghosted_count(filtered)
     ghosted_rate_value = ghosted_rate(filtered)
-    avg_wait_value = avg_wait_time(filtered) if "wartezeit_tage" in filtered.columns else float("nan")
+    avg_wait_value = avg_wait_time(filtered)
     funnel_df = funnel_table(filtered)
 except ValueError as exc:
     st.error(f"KPI-Berechnung nicht moeglich: {exc}")
@@ -379,13 +379,15 @@ with right2:
                     .rename(columns={"index": "status_canonical"})
                 )
                 wait_display["counts"] = wait_display["counts"].fillna(0).astype(int)
-                wait_display["avg_wait"] = wait_display["avg_wait"].fillna(0.0)
-                wait_display["median_wait"] = wait_display["median_wait"].fillna(0.0)
+                wait_display["valid_wait_count"] = wait_display["valid_wait_count"].fillna(0).astype(int)
+                no_wait_data = wait_display["valid_wait_count"].eq(0)
+                wait_display.loc[no_wait_data, "avg_wait"] = wait_display.loc[no_wait_data, "avg_wait"].fillna(0.0)
+                wait_display.loc[no_wait_data, "median_wait"] = wait_display.loc[no_wait_data, "median_wait"].fillna(0.0)
                 fig_wait = px.bar(
                     wait_display,
                     x="status_canonical",
                     y="avg_wait",
-                    hover_data=["median_wait", "counts"],
+                    hover_data=["median_wait", "counts", "valid_wait_count"],
                     labels={"status_canonical": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
                 )
                 apply_chart_layout(fig_wait)

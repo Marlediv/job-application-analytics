@@ -107,6 +107,7 @@ Wichtige Regeln:
 - Unbekannte Statuswerte führen zu `WARN` (Pipeline läuft weiter).
 - Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
 - Dashboard/KPI normalisieren Status konsistent (`status_clean` + `status_canonical`) und mappen Schreibvarianten auf kanonische Werte.
+- Fuer offene Bewerbungen wird die Wartezeit dynamisch auf Basis von `bewerbungsdatum` bzw. `letzter_kontakt` berechnet, wenn `wartezeit_tage` nicht gepflegt ist.
 - Ranking-Analyse zeigt die Verteilung von `ranking_score` nach Bewerbungsstatus (statt Boolean-Interview-Flag).
 
 Referenzstruktur: `docs/example_schema.csv`.

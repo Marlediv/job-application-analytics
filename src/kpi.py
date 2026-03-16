@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +33,12 @@ STATUS_ORDER: list[str] = [
 ]
 
 _RESPONSE_STATUSES: set[str] = {"Eingangsbestätigung", "Interview 1", "Absage", "Angebot"}
+_OPEN_WAIT_STATUSES: set[str] = {
+    "Bewerbung gesendet",
+    "Eingangsbestätigung",
+    "Keine Rückmeldung",
+    "Interview 1",
+}
 
 
 def _fold_umlauts(series: pd.Series) -> pd.Series:
@@ -70,7 +77,50 @@ def _normalized_status(df: pd.DataFrame) -> pd.Series:
     return out["status_clean"]
 
 
-def _ensure_status_flags(df: pd.DataFrame) -> pd.DataFrame:
+def _coerce_datetime_column(series: pd.Series) -> pd.Series:
+    values = pd.to_datetime(series, errors="coerce")
+    if getattr(values.dt, "tz", None) is not None:
+        values = values.dt.tz_localize(None)
+    return values
+
+
+def _reference_today(today: datetime | pd.Timestamp | None = None) -> pd.Timestamp:
+    if today is None:
+        return pd.Timestamp(datetime.now().date())
+
+    timestamp = pd.Timestamp(today)
+    if timestamp.tzinfo is not None:
+        timestamp = timestamp.tz_localize(None)
+    return timestamp.normalize()
+
+
+def _effective_wait_time(out: pd.DataFrame, today: datetime | pd.Timestamp | None = None) -> pd.Series:
+    if "wartezeit_tage" in out.columns:
+        base_wait = pd.to_numeric(out["wartezeit_tage"], errors="coerce")
+    else:
+        base_wait = pd.Series(np.nan, index=out.index, dtype="float64")
+    effective = base_wait.copy()
+
+    reference_today = _reference_today(today)
+    last_contact = _coerce_datetime_column(out["letzter_kontakt"]) if "letzter_kontakt" in out.columns else pd.Series(pd.NaT, index=out.index)
+    application_date = (
+        _coerce_datetime_column(out["bewerbungsdatum"])
+        if "bewerbungsdatum" in out.columns
+        else pd.Series(pd.NaT, index=out.index)
+    )
+    open_status_mask = out["status_canonical"].isin(_OPEN_WAIT_STATUSES)
+    missing_wait_mask = effective.isna() & open_status_mask
+
+    from_last_contact = (reference_today - last_contact).dt.days
+    from_application_date = (reference_today - application_date).dt.days
+    fallback_wait = from_last_contact.where(last_contact.notna(), from_application_date)
+
+    effective = effective.where(~missing_wait_mask, fallback_wait)
+    effective = effective.clip(lower=0)
+    return pd.to_numeric(effective, errors="coerce")
+
+
+def _ensure_status_flags(df: pd.DataFrame, today: datetime | pd.Timestamp | None = None) -> pd.DataFrame:
     _require_columns(df, ["status"])
 
     out = df.copy()
@@ -107,6 +157,8 @@ def _ensure_status_flags(df: pd.DataFrame) -> pd.DataFrame:
         out["is_ghosted"] = out["is_active"] & (wait_days >= 30)
     else:
         out["is_ghosted"] = False
+
+    out["effective_wait_time"] = _effective_wait_time(out, today=today)
 
     return out
 
@@ -178,8 +230,8 @@ def ghosted_rate(df: pd.DataFrame) -> float:
 
 
 def avg_wait_time(df: pd.DataFrame) -> float:
-    _require_columns(df, ["wartezeit_tage"])
-    series = pd.to_numeric(df["wartezeit_tage"], errors="coerce")
+    out = _ensure_status_flags(df)
+    series = pd.to_numeric(out["effective_wait_time"], errors="coerce")
     return float(series.mean()) if not series.dropna().empty else float("nan")
 
 
@@ -250,13 +302,13 @@ def kpi_by_work_model(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def wait_time_by_status(df: pd.DataFrame) -> pd.DataFrame:
-    _require_columns(df, ["status", "wartezeit_tage"])
+    _require_columns(df, ["status"])
     out = _ensure_status_flags(df)
-    out["wartezeit_tage"] = pd.to_numeric(out["wartezeit_tage"], errors="coerce")
+    out["effective_wait_time"] = pd.to_numeric(out["effective_wait_time"], errors="coerce")
 
     grouped = (
-        out.groupby("status_canonical", dropna=False)["wartezeit_tage"]
-        .agg(avg_wait="mean", median_wait="median", counts="size")
+        out.groupby("status_canonical", dropna=False)["effective_wait_time"]
+        .agg(avg_wait="mean", median_wait="median", counts="size", valid_wait_count="count")
         .reset_index()
         .sort_values("counts", ascending=False)
     )

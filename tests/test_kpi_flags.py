@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -71,8 +72,29 @@ def test_status_normalization_maps_canonical_values() -> None:
     ]
 
 
+def test_effective_wait_time_uses_fallback_dates_for_open_statuses() -> None:
+    reference_today = datetime(2026, 3, 16)
+    df = pd.DataFrame(
+        {
+            "status": [
+                "Absage",
+                "Eingangsbestätigung",
+                "Bewerbung gesendet",
+            ],
+            "wartezeit_tage": [11, None, None],
+            "letzter_kontakt": [None, "2026-03-10", None],
+            "bewerbungsdatum": ["2026-03-01", "2026-03-01", "2026-03-12"],
+        }
+    )
+
+    out = _ensure_status_flags(df, today=reference_today)
+
+    assert out["effective_wait_time"].tolist() == [11.0, 6.0, 4.0]
+
+
 if __name__ == "__main__":
     test_ensure_status_flags_sets_expected_booleans()
     test_ensure_status_flags_handles_missing_wait_time()
     test_status_normalization_maps_canonical_values()
+    test_effective_wait_time_uses_fallback_dates_for_open_statuses()
     print("tests/test_kpi_flags.py: ok")
