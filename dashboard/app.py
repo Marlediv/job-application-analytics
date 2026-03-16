@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.kpi import (
+    STATUS_ORDER,
     active_applications,
     avg_wait_time,
     funnel_table,
@@ -366,12 +367,26 @@ with right2:
         try:
             wait_kpi = wait_time_by_status(filtered)
             if not wait_kpi.empty:
+                wait_kpi = wait_kpi.rename(columns={"status": "status_canonical"})
+                extra_statuses = [
+                    s for s in wait_kpi["status_canonical"].dropna().unique().tolist() if s not in STATUS_ORDER
+                ]
+                status_order = STATUS_ORDER + extra_statuses
+                wait_display = (
+                    wait_kpi.set_index("status_canonical")
+                    .reindex(status_order)
+                    .reset_index()
+                    .rename(columns={"index": "status_canonical"})
+                )
+                wait_display["counts"] = wait_display["counts"].fillna(0).astype(int)
+                wait_display["avg_wait"] = wait_display["avg_wait"].fillna(0.0)
+                wait_display["median_wait"] = wait_display["median_wait"].fillna(0.0)
                 fig_wait = px.bar(
-                    wait_kpi,
-                    x="status",
+                    wait_display,
+                    x="status_canonical",
                     y="avg_wait",
                     hover_data=["median_wait", "counts"],
-                    labels={"status": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
+                    labels={"status_canonical": "Status", "avg_wait": "Ø Wartezeit (Tage)"},
                 )
                 apply_chart_layout(fig_wait)
                 st.plotly_chart(fig_wait, use_container_width=True, key="waiting_time_by_status_chart")
@@ -437,61 +452,43 @@ with right3:
     if filtered.empty:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
     else:
-        has_interviews = pd.to_numeric(filtered["interviewed_flag"], errors="coerce").fillna(0).sum() > 0
-        if not has_interviews:
-            if "ranking_score" not in filtered.columns:
-                st.info("Kein Ranking Score vorhanden – bitte Spalte 'ranking_score' pflegen, um dieses Diagramm zu nutzen.")
-            else:
-                ranking_plot = filtered.copy()
-                ranking_plot["ranking_score"] = pd.to_numeric(ranking_plot["ranking_score"], errors="coerce")
-                ranking_plot = ranking_plot.dropna(subset=["ranking_score"])
-                if ranking_plot.empty:
-                    st.info("Keine Daten für die aktuelle Filterauswahl.")
-                else:
-                    fig_hist = px.histogram(
-                        ranking_plot,
-                        x="ranking_score",
-                        nbins=20,
-                        labels={"ranking_score": "Ranking Score", "count": "Anzahl"},
-                    )
-                    apply_chart_layout(fig_hist)
-                    fig_hist.update_yaxes(rangemode="tozero", tickformat=",d")
-                    st.plotly_chart(fig_hist, use_container_width=True, key="ranking_histogram_chart")
-            st.caption("Das Scatter-Diagramm wird automatisch aktiv, sobald Interviews in der Auswahl vorhanden sind.")
+        if "ranking_score" not in filtered.columns:
+            st.info("Kein Ranking Score vorhanden – bitte Spalte 'ranking_score' pflegen, um dieses Diagramm zu nutzen.")
         else:
-            if "ranking_score" not in filtered.columns:
-                st.info("Kein Ranking Score vorhanden – bitte Spalte 'ranking_score' pflegen, um dieses Diagramm zu nutzen.")
+            ranking_plot = filtered.copy()
+            ranking_plot["ranking_score"] = pd.to_numeric(ranking_plot["ranking_score"], errors="coerce")
+            if "status_canonical" not in ranking_plot.columns:
+                ranking_plot["status_canonical"] = ranking_plot.get("status", "Unbekannt")
+            ranking_plot["status_canonical"] = (
+                ranking_plot["status_canonical"].fillna("Unbekannt").astype(str).str.strip().replace("", "Unbekannt")
+            )
+            ranking_plot = ranking_plot.dropna(subset=["ranking_score"])
+
+            if ranking_plot.empty:
+                st.info("Keine Daten für die aktuelle Filterauswahl.")
             else:
-                ranking_plot = filtered.copy()
-                ranking_plot["ranking_score"] = pd.to_numeric(ranking_plot["ranking_score"], errors="coerce")
-                ranking_plot["interviewed_flag"] = pd.to_numeric(
-                    ranking_plot["interviewed_flag"], errors="coerce"
-                ).fillna(0).gt(0)
-                ranking_plot = ranking_plot.dropna(subset=["ranking_score"])
+                ordered_status = STATUS_ORDER + [
+                    s for s in ranking_plot["status_canonical"].dropna().unique().tolist() if s not in STATUS_ORDER
+                ]
+                hover_cols: list[str] = []
+                if "unternehmen" in ranking_plot.columns:
+                    hover_cols.append("unternehmen")
+                if "stelle" in ranking_plot.columns:
+                    hover_cols.append("stelle")
 
-                if ranking_plot.empty:
-                    st.info("Keine Daten für die aktuelle Filterauswahl.")
-                else:
-                    ranking_plot["interviewed_label"] = ranking_plot["interviewed_flag"].map({False: "False", True: "True"})
-                    hover_cols = ["interviewed_label"]
-                    if "unternehmen" in ranking_plot.columns:
-                        hover_cols.append("unternehmen")
-                    if "stelle" in ranking_plot.columns:
-                        hover_cols.append("stelle")
-
-                    fig_scatter = px.scatter(
-                        ranking_plot,
-                        x="ranking_score",
-                        y="interviewed_label",
-                        color="interviewed_label",
-                        category_orders={"interviewed_label": ["False", "True"]},
-                        labels={"ranking_score": "Ranking Score", "interviewed_label": "Interviewed"},
-                        hover_data=hover_cols,
-                        opacity=0.7,
-                    )
-                    apply_chart_layout(fig_scatter)
-                    fig_scatter.update_yaxes(type="category")
-                    st.plotly_chart(fig_scatter, use_container_width=True, key="ranking_scatter_chart")
+                fig_scatter = px.scatter(
+                    ranking_plot,
+                    x="ranking_score",
+                    y="status_canonical",
+                    color="status_canonical",
+                    category_orders={"status_canonical": ordered_status},
+                    labels={"ranking_score": "Ranking Score", "status_canonical": "Status"},
+                    hover_data=hover_cols if hover_cols else None,
+                    opacity=0.65,
+                )
+                apply_chart_layout(fig_scatter)
+                fig_scatter.update_yaxes(type="category")
+                st.plotly_chart(fig_scatter, use_container_width=True, key="ranking_scatter_chart")
 
 st.divider()
 

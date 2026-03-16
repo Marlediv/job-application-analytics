@@ -10,7 +10,7 @@ CI/CD und containerisiertem Deployment auf Raspberry Pi.
 ## Showcase Features
 - Ingestion & Schema-Normalisierung (Synonym-Mapping, Trim, Typkonvertierung)
 - Data Quality Layer (Required Columns, Date Checks, Duplicates, Status Validation)
-- KPI Layer mit Funnel-Conversion & Ghosting-Metriken
+- KPI Layer mit zentraler Status-Normalisierung, Funnel-Conversion & Ghosting-Metriken
 - Insight-Engine mit automatischen Business-Callouts
 - Markdown Report Export
 - Robuste Fallback-Charts
@@ -106,6 +106,8 @@ Wichtige Regeln:
 - Erlaubte Statuswerte (Muster): `absage`, `abgelehnt`, `interview`, `gespräch`, `angebot`, `offer`, `zusage`, `eingangsbestätigung`, `antwort`, `rückmeldung`.
 - Unbekannte Statuswerte führen zu `WARN` (Pipeline läuft weiter).
 - Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
+- Dashboard/KPI normalisieren Status konsistent (`status_clean` + `status_canonical`) und mappen Schreibvarianten auf kanonische Werte.
+- Ranking-Analyse zeigt die Verteilung von `ranking_score` nach Bewerbungsstatus (statt Boolean-Interview-Flag).
 
 Referenzstruktur: `docs/example_schema.csv`.
 

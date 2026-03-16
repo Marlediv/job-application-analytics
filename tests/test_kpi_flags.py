@@ -48,7 +48,31 @@ def test_ensure_status_flags_handles_missing_wait_time() -> None:
     assert out["is_ghosted"].sum() == 0
 
 
+def test_status_normalization_maps_canonical_values() -> None:
+    df = pd.DataFrame(
+        {
+            "status": [
+                " interview ",
+                "eingangsbestaetigung",
+                "  Offer  ",
+                "Spezialstatus intern",
+            ]
+        }
+    )
+
+    out = _ensure_status_flags(df)
+
+    assert out["status_clean"].tolist() == ["interview", "eingangsbestaetigung", "offer", "spezialstatus intern"]
+    assert out["status_canonical"].tolist() == [
+        "Interview 1",
+        "Eingangsbestätigung",
+        "Angebot",
+        "Spezialstatus intern",
+    ]
+
+
 if __name__ == "__main__":
     test_ensure_status_flags_sets_expected_booleans()
     test_ensure_status_flags_handles_missing_wait_time()
+    test_status_normalization_maps_canonical_values()
     print("tests/test_kpi_flags.py: ok")

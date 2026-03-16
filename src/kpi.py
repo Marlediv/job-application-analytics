@@ -7,6 +7,41 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+STATUS_MAP: dict[str, str] = {
+    "absage": "Absage",
+    "abgelehnt": "Absage",
+    "interview": "Interview 1",
+    "interview 1": "Interview 1",
+    "eingangsbestätigung": "Eingangsbestätigung",
+    "eingangsbestaetigung": "Eingangsbestätigung",
+    "bewerbung gesendet": "Bewerbung gesendet",
+    "keine rückmeldung": "Keine Rückmeldung",
+    "keine rueckmeldung": "Keine Rückmeldung",
+    "angebot": "Angebot",
+    "offer": "Angebot",
+    "zusage": "Angebot",
+}
+
+STATUS_ORDER: list[str] = [
+    "Bewerbung gesendet",
+    "Eingangsbestätigung",
+    "Interview 1",
+    "Angebot",
+    "Absage",
+    "Keine Rückmeldung",
+]
+
+_RESPONSE_STATUSES: set[str] = {"Eingangsbestätigung", "Interview 1", "Absage", "Angebot"}
+
+
+def _fold_umlauts(series: pd.Series) -> pd.Series:
+    return (
+        series.str.replace("ä", "ae", regex=False)
+        .str.replace("ö", "oe", regex=False)
+        .str.replace("ü", "ue", regex=False)
+        .str.replace("ß", "ss", regex=False)
+    )
+
 
 def load_processed(path: str | Path = "data/processed/applications.csv") -> pd.DataFrame:
     csv_path = Path(path)
@@ -39,24 +74,32 @@ def _ensure_status_flags(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["status"])
 
     out = df.copy()
-    out["status_clean"] = out["status"].fillna("").astype(str).str.strip().str.lower()
-    status_for_match = (
-        out["status_clean"]
-        .str.replace("ä", "ae", regex=False)
-        .str.replace("ö", "oe", regex=False)
-        .str.replace("ü", "ue", regex=False)
-        .str.replace("ß", "ss", regex=False)
-    )
+    raw_status = out["status"].fillna("").astype(str).str.strip()
+    out["status_clean"] = raw_status.str.lower()
+    status_folded = _fold_umlauts(out["status_clean"])
 
-    out["is_rejection"] = status_for_match.str.contains(r"absage|abgelehnt", regex=True)
-    out["is_offer"] = status_for_match.str.contains(r"angebot|offer|zusage", regex=True)
-    out["is_interview"] = status_for_match.str.contains(r"interview|gespraech|gesprach|gespräch", regex=True)
-
-    response_text = status_for_match.str.contains(
-        r"eingangsbestaetigung|eingangsbestatigung|eingangsbestaetigung|eingangsbestätigung|rueckmeldung|ruckmeldung|rückmeldung|antwort",
-        regex=True,
+    mapped = out["status_clean"].map(STATUS_MAP)
+    mapped_folded = status_folded.map(STATUS_MAP)
+    canonical = mapped.combine_first(mapped_folded)
+    canonical = canonical.mask(canonical.isna() & status_folded.str.contains(r"absage|abgelehnt", regex=True), "Absage")
+    canonical = canonical.mask(canonical.isna() & status_folded.str.contains(r"angebot|offer|zusage", regex=True), "Angebot")
+    canonical = canonical.mask(
+        canonical.isna() & status_folded.str.contains(r"interview|gespraech|gesprach", regex=True), "Interview 1"
     )
-    out["is_response"] = response_text | out["is_rejection"] | out["is_offer"] | out["is_interview"]
+    canonical = canonical.mask(
+        canonical.isna() & status_folded.str.contains(r"eingangsbestaetigung|eingangsbestatigung", regex=True),
+        "Eingangsbestätigung",
+    )
+    canonical = canonical.mask(
+        canonical.isna() & status_folded.str.contains(r"keine rueckmeldung|keine ruckmeldung|keine rückmeldung", regex=True),
+        "Keine Rückmeldung",
+    )
+    out["status_canonical"] = canonical.fillna(raw_status.where(raw_status.ne(""), "Unbekannt"))
+
+    out["is_rejection"] = out["status_canonical"].eq("Absage")
+    out["is_offer"] = out["status_canonical"].eq("Angebot")
+    out["is_interview"] = out["status_canonical"].str.startswith("Interview", na=False)
+    out["is_response"] = out["status_canonical"].isin(_RESPONSE_STATUSES)
     out["is_active"] = ~out["is_rejection"] & ~out["is_offer"]
 
     if "wartezeit_tage" in out.columns:
@@ -208,16 +251,16 @@ def kpi_by_work_model(df: pd.DataFrame) -> pd.DataFrame:
 
 def wait_time_by_status(df: pd.DataFrame) -> pd.DataFrame:
     _require_columns(df, ["status", "wartezeit_tage"])
-    out = df.copy()
-    out["status"] = out["status"].fillna("Unbekannt").astype(str).str.strip()
+    out = _ensure_status_flags(df)
     out["wartezeit_tage"] = pd.to_numeric(out["wartezeit_tage"], errors="coerce")
 
     grouped = (
-        out.groupby("status", dropna=False)["wartezeit_tage"]
+        out.groupby("status_canonical", dropna=False)["wartezeit_tage"]
         .agg(avg_wait="mean", median_wait="median", counts="size")
         .reset_index()
         .sort_values("counts", ascending=False)
     )
+    grouped = grouped.rename(columns={"status_canonical": "status"})
     return grouped
 
 
