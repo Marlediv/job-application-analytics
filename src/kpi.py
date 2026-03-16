@@ -152,13 +152,15 @@ def _ensure_status_flags(df: pd.DataFrame, today: datetime | pd.Timestamp | None
     out["is_response"] = out["status_canonical"].isin(_RESPONSE_STATUSES)
     out["is_active"] = ~out["is_rejection"] & ~out["is_offer"]
 
-    if "wartezeit_tage" in out.columns:
-        wait_days = pd.to_numeric(out["wartezeit_tage"], errors="coerce")
-        out["is_ghosted"] = out["is_active"] & (wait_days >= 30)
-    else:
-        out["is_ghosted"] = False
-
     out["effective_wait_time"] = _effective_wait_time(out, today=today)
+    ghosted_status_excluded = ["Absage", "Angebot"]
+    out["is_ghosted"] = (
+        out["status_canonical"].eq("Keine Rückmeldung")
+        | (
+            ~out["status_canonical"].isin(ghosted_status_excluded)
+            & (out["effective_wait_time"] >= 21)
+        )
+    ).astype(bool)
 
     return out
 

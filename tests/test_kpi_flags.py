@@ -92,9 +92,37 @@ def test_effective_wait_time_uses_fallback_dates_for_open_statuses() -> None:
     assert out["effective_wait_time"].tolist() == [11.0, 6.0, 4.0]
 
 
+def test_ghosting_marks_no_response_status_even_without_wait_time() -> None:
+    df = pd.DataFrame(
+        {
+            "status": ["Keine Rückmeldung"],
+            "wartezeit_tage": [0],
+        }
+    )
+
+    out = _ensure_status_flags(df)
+
+    assert bool(out.loc[0, "is_ghosted"]) is True
+
+
+def test_ghosting_marks_open_status_when_effective_wait_reaches_threshold() -> None:
+    df = pd.DataFrame(
+        {
+            "status": ["Eingangsbestätigung"],
+            "wartezeit_tage": [30],
+        }
+    )
+
+    out = _ensure_status_flags(df)
+
+    assert bool(out.loc[0, "is_ghosted"]) is True
+
+
 if __name__ == "__main__":
     test_ensure_status_flags_sets_expected_booleans()
     test_ensure_status_flags_handles_missing_wait_time()
     test_status_normalization_maps_canonical_values()
     test_effective_wait_time_uses_fallback_dates_for_open_statuses()
+    test_ghosting_marks_no_response_status_even_without_wait_time()
+    test_ghosting_marks_open_status_when_effective_wait_reaches_threshold()
     print("tests/test_kpi_flags.py: ok")
