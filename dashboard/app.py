@@ -120,7 +120,7 @@ if "last_update_timestamp" in st.session_state:
 try:
     data = _load_data()
 except FileNotFoundError:
-    st.info("Bitte Excel hochladen oder zuerst python -m src.ingest ausfuehren.")
+    st.info("Bitte Excel hochladen oder zuerst python -m src.ingest ausführen.")
     st.stop()
 except Exception as exc:
     st.error(f"Daten konnten nicht geladen werden: {exc}")
@@ -225,7 +225,7 @@ try:
     avg_wait_value = avg_wait_time(filtered)
     funnel_df = funnel_table(filtered)
 except ValueError as exc:
-    st.error(f"KPI-Berechnung nicht moeglich: {exc}")
+    st.error(f"KPI-Berechnung nicht möglich: {exc}")
     st.stop()
 
 top1, top2, top3, top4, top5, top6 = st.columns(6)
@@ -234,7 +234,7 @@ with top1:
 with top2:
     render_kpi("Aktiv", f"{active_value}")
 with top3:
-    render_kpi("Rueckmeldungen", f"{response_value}")
+    render_kpi("Rückmeldungen", f"{response_value}")
 with top4:
     render_kpi("Interviews", f"{interview_value}")
 with top5:
@@ -244,7 +244,7 @@ with top6:
 
 bottom1, bottom2, bottom3, bottom4, bottom5 = st.columns(5)
 with bottom1:
-    render_kpi("Rueckmeldequote", f"{response_rate_value:.1%}")
+    render_kpi("Rückmeldequote", f"{response_rate_value:.1%}")
 with bottom2:
     render_kpi("Interviewquote", f"{interview_rate_value:.1%}")
 with bottom3:
@@ -265,7 +265,7 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    st.subheader("Bewerbungen ueber Zeit")
+    st.subheader("Bewerbungen über Zeit")
     if filtered.empty:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
     elif "bewerbungsdatum" in filtered.columns:
@@ -316,7 +316,7 @@ with left2:
     if filtered.empty:
         st.info("Keine Daten für die aktuelle Filterauswahl.")
     elif "quelle" not in filtered.columns:
-        st.info("Spalte 'quelle' fehlt, Interviewquote nach Quelle nicht verfuegbar.")
+        st.info("Spalte 'quelle' fehlt, Interviewquote nach Quelle nicht verfügbar.")
     else:
         try:
             counts_by_source = (
@@ -445,9 +445,9 @@ with left3:
                 fig_ghost.update_yaxes(tickformat=".0%", range=[0, 1])
                 st.plotly_chart(fig_ghost, use_container_width=True, key="ghosting_rate_by_source_chart")
         except Exception as exc:  # pragma: no cover
-            st.info(f"Ghosting-Auswertung nicht verfuegbar: {exc}")
+            st.info(f"Ghosting-Auswertung nicht verfügbar: {exc}")
     else:
-        st.info("Spalte 'quelle' fehlt, Ghosting nach Quelle nicht verfuegbar.")
+        st.info("Spalte 'quelle' fehlt, Ghosting nach Quelle nicht verfügbar.")
 
 with right3:
     st.subheader("Ranking")

@@ -11,7 +11,7 @@ CI/CD und containerisiertem Deployment auf Raspberry Pi.
 - Ingestion & Schema-Normalisierung (Synonym-Mapping, Trim, Typkonvertierung)
 - Data Quality Layer (Required Columns, Date Checks, Duplicates, Status Validation)
 - KPI Layer mit zentraler Status-Normalisierung, Funnel-Conversion & Ghosting-Metriken
-- Insight-Engine mit automatischen Business-Callouts und Hervorhebung des Unternehmens mit der laengsten Wartezeit ohne Antwort
+- Insight-Engine mit automatischen Business-Callouts und Hervorhebung des Unternehmens mit der längsten Wartezeit ohne Antwort
 - Markdown Report Export
 - Robuste Fallback-Charts
 - Docker Deployment (Raspi) mit persistentem Volume
@@ -105,10 +105,10 @@ flowchart LR
 Wichtige Regeln:
 - Erlaubte Statuswerte (Muster): `absage`, `abgelehnt`, `interview`, `gespräch`, `angebot`, `offer`, `zusage`, `eingangsbestätigung`, `antwort`, `rückmeldung`.
 - Unbekannte Statuswerte führen zu `WARN` (Pipeline läuft weiter).
-- Missing Required Columns fuehren zu `FAIL` (Pipeline stoppt).
+- Missing Required Columns führen zu `FAIL` (Pipeline stoppt).
 - Dashboard/KPI normalisieren Status konsistent (`status_clean` + `status_canonical`) und mappen Schreibvarianten auf kanonische Werte.
-- Fuer offene Bewerbungen wird die Wartezeit dynamisch auf Basis von `bewerbungsdatum` bzw. `letzter_kontakt` berechnet, wenn `wartezeit_tage` nicht gepflegt ist.
-- Ghosting wird erkannt, wenn der Status `Keine Rückmeldung` vorliegt oder bei offenen Bewerbungen laenger als 21 Tage keine Reaktion erfolgt.
+- Für offene Bewerbungen wird die Wartezeit dynamisch auf Basis von `bewerbungsdatum` bzw. `letzter_kontakt` berechnet, wenn `wartezeit_tage` nicht gepflegt ist.
+- Ghosting wird erkannt, wenn der Status `Keine Rückmeldung` vorliegt oder bei offenen Bewerbungen länger als 21 Tage keine Reaktion erfolgt.
 - Ranking-Analyse zeigt die Verteilung von `ranking_score` nach Bewerbungsstatus (statt Boolean-Interview-Flag).
 
 Referenzstruktur: `docs/example_schema.csv`.

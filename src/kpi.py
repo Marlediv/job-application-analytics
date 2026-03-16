@@ -67,7 +67,7 @@ def _require_columns(df: pd.DataFrame, columns: list[str]) -> None:
     missing = [col for col in columns if col not in df.columns]
     if missing:
         raise ValueError(
-            "Fehlende Spalte(n) fuer KPI-Berechnung: "
+            "Fehlende Spalte(n) für KPI-Berechnung: "
             f"{', '.join(missing)}"
         )
 
@@ -364,7 +364,7 @@ def funnel_table(df: pd.DataFrame) -> pd.DataFrame:
 
     stages = [
         ("Bewerbungen", total),
-        ("Rueckmeldung", response),
+        ("Rückmeldung", response),
         ("Interview", interview),
         ("Angebot", offer),
     ]

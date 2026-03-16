@@ -39,22 +39,22 @@ def _funnel_bottleneck(df: pd.DataFrame, funnel_df: pd.DataFrame | None = None) 
 
     bottleneck = drops.sort_values("rate_from_prev", ascending=True).iloc[0]
     return (
-        f"Groesster Funnel-Drop vor Stufe `{bottleneck['stage']}` "
+        f"Größter Funnel-Drop vor Stufe `{bottleneck['stage']}` "
         f"mit Conversion {float(bottleneck['rate_from_prev']):.1%}."
     )
 
 
 def _highest_wait_status(df: pd.DataFrame) -> str:
     if "status" not in df.columns:
-        return "Status mit hoechster Ø Wartezeit: nicht verfuegbar."
+        return "Status mit höchster Ø Wartezeit: nicht verfügbar."
 
     wait_df = wait_time_by_status(df)
     if wait_df.empty:
-        return "Status mit hoechster Ø Wartezeit: nicht verfuegbar."
+        return "Status mit höchster Ø Wartezeit: nicht verfügbar."
 
     top = wait_df.sort_values("avg_wait", ascending=False).iloc[0]
     return (
-        f"Status mit hoechster Ø Wartezeit: `{top['status']}` "
+        f"Status mit höchster Ø Wartezeit: `{top['status']}` "
         f"({float(top['avg_wait']):.1f} Tage, n={int(top['counts'])})."
     )
 
@@ -67,7 +67,7 @@ def _longest_no_response_company(df: pd.DataFrame) -> str | None:
     company = str(case["unternehmen"]).strip()
     wait_time = int(float(case["effective_wait_time"]))
     status = str(case["status_canonical"]).strip()
-    return f"Laengste Wartezeit ohne Antwort: {company} ({wait_time} Tage, {status})."
+    return f"Längste Wartezeit ohne Antwort: {company} ({wait_time} Tage, {status})."
 
 
 def build_key_insights(
@@ -87,13 +87,13 @@ def build_key_insights(
 
     interviews = interview_count(df)
     if interviews == 0:
-        insights.append("Keine Interviews in der Auswahl. Empfehlung: CV/Titel-Targeting und Quellenmix nachschaerfen.")
+        insights.append("Keine Interviews in der Auswahl. Empfehlung: CV/Titel-Targeting und Quellenmix nachschärfen.")
     else:
         insights.append(f"Interviews vorhanden: {interviews} (Conversion sichtbar messbar).")
 
     g_rate = ghosted_rate(df)
     if g_rate > ghosting_warn_threshold:
-        insights.append(f"Ghosting-Quote ist erhoeht ({g_rate:.1%}). Empfehlung: Follow-up-Playbook straffen.")
+        insights.append(f"Ghosting-Quote ist erhöht ({g_rate:.1%}). Empfehlung: Follow-up-Playbook straffen.")
     else:
         insights.append(f"Ghosting-Quote im unkritischen Bereich ({g_rate:.1%}).")
 
