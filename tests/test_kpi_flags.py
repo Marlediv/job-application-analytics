@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.insights import build_key_insights
-from src.kpi import _ensure_status_flags, longest_no_response_case
+from src.kpi import _ensure_status_flags, active_applications, longest_no_response_case
 
 
 def test_ensure_status_flags_sets_expected_booleans() -> None:
@@ -119,6 +119,22 @@ def test_ghosting_marks_open_status_when_effective_wait_reaches_threshold() -> N
     assert bool(out.loc[0, "is_ghosted"]) is True
 
 
+def test_active_applications_excludes_ghosted_rejections_and_offers() -> None:
+    df = pd.DataFrame(
+        {
+            "status": [
+                "Eingangsbestätigung",
+                "Keine Rückmeldung",
+                "Absage",
+                "Angebot",
+            ],
+            "wartezeit_tage": [5, 0, 7, 3],
+        }
+    )
+
+    assert active_applications(df) == 1
+
+
 def test_longest_no_response_case_prioritizes_no_response_status() -> None:
     df = pd.DataFrame(
         {
@@ -160,6 +176,7 @@ if __name__ == "__main__":
     test_effective_wait_time_uses_fallback_dates_for_open_statuses()
     test_ghosting_marks_no_response_status_even_without_wait_time()
     test_ghosting_marks_open_status_when_effective_wait_reaches_threshold()
+    test_active_applications_excludes_ghosted_rejections_and_offers()
     test_longest_no_response_case_prioritizes_no_response_status()
     test_longest_no_response_case_falls_back_to_ghosted_case()
     print("tests/test_kpi_flags.py: ok")

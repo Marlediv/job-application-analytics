@@ -186,7 +186,12 @@ def total_applications(df: pd.DataFrame) -> int:
 
 def active_applications(df: pd.DataFrame) -> int:
     out = _ensure_status_flags(df)
-    return int(out["is_active"].sum())
+    active = (
+        (~out["is_rejection"])
+        & (~out["is_offer"])
+        & (~out["is_ghosted"])
+    )
+    return int(active.sum())
 
 
 def rejection_count(df: pd.DataFrame) -> int:

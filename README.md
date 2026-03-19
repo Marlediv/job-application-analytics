@@ -109,6 +109,7 @@ Wichtige Regeln:
 - Dashboard/KPI normalisieren Status konsistent (`status_clean` + `status_canonical`) und mappen Schreibvarianten auf kanonische Werte.
 - Für offene Bewerbungen wird die Wartezeit dynamisch auf Basis von `bewerbungsdatum` bzw. `letzter_kontakt` berechnet, wenn `wartezeit_tage` nicht gepflegt ist.
 - Ghosting wird erkannt, wenn der Status `Keine Rückmeldung` vorliegt oder bei offenen Bewerbungen länger als 21 Tage keine Reaktion erfolgt.
+- Aktive Bewerbungen umfassen nur laufende, nicht abgeschlossene und nicht geghostete Prozesse.
 - Ranking-Analyse zeigt die Verteilung von `ranking_score` nach Bewerbungsstatus (statt Boolean-Interview-Flag).
 
 Referenzstruktur: `docs/example_schema.csv`.
